@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>SuppleFacts Barcode Test</title>
+<style>
+:root{--bg:#faf8f3;--card:#fff;--fg:#0f2a52;--mute:#4a5568;--line:#d8e1e9;--green:#1b6a4f;--gold:#9a6f12;--bad:#b3482f}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1620;--card:#16222f;--fg:#eaf0f5;--mute:#9fb0bf;--line:#28394a;--green:#2fa08d;--gold:#d9bb55;--bad:#e08064}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:560px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.dev{background:var(--gold);color:#fff;font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-radius:8px;display:inline-block;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.card h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:11px 14px;background:var(--green);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--fg);border:1.5px solid var(--line)}
+input[type=text],input[type=search],input[type=tel]{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg)}
+.row{display:flex;gap:8px}
+.photo-btn{display:inline-block;font-weight:700;border:1.5px solid var(--green);color:var(--green);border-radius:10px;padding:11px 14px;cursor:pointer}
+.statusbar{position:sticky;top:0;z-index:20;background:var(--card);border:2px solid var(--green);border-radius:12px;padding:10px 12px;margin:8px 0 10px;font-weight:600;font-size:14px}
+.card{scroll-margin-top:70px}
+video{width:100%;border-radius:12px;background:#000;max-height:300px;object-fit:cover}
+.big{font:700 22px/1.2 ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+.mute{color:var(--mute);font-size:13px}
+.ok{color:var(--green);font-weight:700}.bad{color:var(--bad);font-weight:700}
+pre{white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;margin:0;max-height:340px;overflow:auto}
+.src{border-top:1px solid var(--line);padding:9px 0}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;color:#fff;background:var(--mute)}
+.badge.found{background:var(--green)}.badge.error{background:var(--bad)}
+.small{font-size:12px;color:var(--mute)}
+button.mini{padding:6px 10px;font-size:12px;margin-top:6px}
+.hit{border-top:1px solid var(--line);padding:8px 0}
+</style>
+<script>
+window.addEventListener('error', function(e){
+  var m = document.getElementById('camMsg');
+  if (m) m.innerHTML = '<span style="color:#b3482f">Page error: ' + String((e && e.message) || 'unknown').replace(/</g,'&lt;') + ' (line ' + (e && e.lineno) + ')</span>';
+});
+window.addEventListener('unhandledrejection', function(e){
+  var m = document.getElementById('camMsg');
+  if (m) m.innerHTML = '<span style="color:#b3482f">Problem: ' + String((e && e.reason && (e.reason.message || e.reason)) || 'unknown').replace(/</g,'&lt;') + '</span>';
+});
+</script>
+</head>
+<body>
+<div class="dev">Developer test page — not part of the app</div>
+<div id="camMsg" class="statusbar" role="status" aria-live="polite">Ready. Tap Scan a barcode, or take a photo of the barcode.</div>
+<h1>Barcode scan test</h1>
+<p class="mute">Scan a supplement bottle (or type a number) to see what the camera reads, how it is cleaned up, and whether the NIH label database finds it.</p>
+
+<div class="card">
+  <h2>1 · Scan</h2>
+  <video id="vid" playsinline muted hidden></video>
+  <div class="row" style="margin-top:8px">
+    <button id="startBtn">Scan a barcode</button>
+    <button id="stopBtn" class="alt" hidden>Stop camera</button>
+  </div>
+  <div style="margin-top:10px">
+    <label class="photo-btn" for="photoIn">📷 Take a photo of the barcode instead</label>
+    <input id="photoIn" type="file" accept="image/*" capture="environment" hidden>
+    <div class="mute" style="margin-top:4px">Works even when the live camera view won’t open (for example in a Home Screen app). Fill the frame with the barcode and keep it sharp.</div>
+  </div>
+  <div class="mute" id="envLine" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+  <h2>…or type / paste a number</h2>
+  <div class="row"><input id="manual" type="tel" inputmode="numeric" placeholder="e.g. 0 33674 15223 1" autocomplete="off"><button id="goBtn">Look up</button></div>
+</div>
+
+<div class="card">
+  <h2>2 · What was read</h2>
+  <div class="big" id="raw">—</div>
+  <div class="mute" id="fmt"></div>
+</div>
+
+<div class="card">
+  <h2>3 · Cleaned-up versions tried</h2>
+  <pre id="variants">—</pre>
+</div>
+
+<div class="card">
+  <h2>4 · NIH lookup result</h2>
+  <div id="result" class="mute">Nothing yet.</div>
+</div>
+
+<div class="card">
+  <h2>5 · Product databases (all sources at once)</h2>
+  <div id="sources" class="mute">Nothing yet.</div>
+  <div id="nameHits"></div>
+</div>
+
+<div class="card">
+  <h2>Log (send me a screenshot of this)</h2>
+  <pre id="log"></pre>
+  <div class="row" style="margin-top:8px"><button class="alt" id="copyLog">Copy log</button><button class="alt" id="clearLog">Clear</button></div>
+</div>
+
+<script src="/scan-vendor/zxing.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  var API = 'https://api.ods.od.nih.gov/dsld/v9';
+  var $ = function(id){ return document.getElementById(id); };
+  var logEl = $('log'), logLines = [];
+  function log(s){ var t = new Date().toLocaleTimeString() + '  ' + s; logLines.push(t); logEl.textContent = logLines.join('\n'); logEl.scrollTop = logEl.scrollHeight; }
+
+  /* ---------- number cleanup ---------- */
+  function digits(s){ return String(s || '').replace(/\D+/g, ''); }
+  function stripZeros(d){ return d.replace(/^0+/, ''); }
+  // GS1 check digit: last digit must make the weighted sum a multiple of 10
+  function checkOk(d){
+    if (d.length < 8) return false;
+    var sum = 0, body = d.slice(0, -1), n = body.length;
+    for (var i = 0; i < n; i++){ var v = +body.charAt(n - 1 - i); sum += (i % 2 === 0) ? v * 3 : v; }
+    return ((10 - (sum % 10)) % 10) === +d.charAt(d.length - 1);
+  }
+  function pad(d, n){ while (d.length < n) d = '0' + d; return d; }
+  function spaced(d12){ return d12.length === 12 ? d12.charAt(0) + ' ' + d12.slice(1, 6) + ' ' + d12.slice(6, 11) + ' ' + d12.charAt(11) : d12; }
+  // UPC-E (8 digits, from the compressed barcode) expanded to UPC-A
+  function upcEtoA(e){
+    if (e.length !== 8) return null;
+    var ns = e.charAt(0), m = e.slice(1, 7), cd = e.charAt(7), a = '';
+    var last = m.charAt(5);
+    if (last === '0' || last === '1' || last === '2') a = m.slice(0,2) + last + '0000' + m.slice(2,5);
+    else if (last === '3') a = m.slice(0,3) + '00000' + m.slice(3,5);
+    else if (last === '4') a = m.slice(0,4) + '00000' + m.charAt(4);
+    else a = m.slice(0,5) + '0000' + last;
+    return ns + a + cd;
+  }
+  // Every reasonable form of the scanned number, most likely first
+  function variantsOf(raw){
+    var d = digits(raw), out = [], seen = {};
+    function add(label, v){ if (v && !seen[v]){ seen[v] = 1; out.push({ label: label, value: v }); } }
+    if (!d) return out;
+    var core = stripZeros(d);
+    add('as scanned', d);
+    if (d.length === 8){ var a = upcEtoA(d); if (a) add('UPC-E expanded to UPC-A', a); }
+    if (core.length <= 12){ add('12-digit UPC-A', pad(core, 12)); }
+    if (core.length <= 13){ add('13-digit EAN-13', pad(core, 13)); }
+    if (core.length <= 14){ add('14-digit GTIN', pad(core, 14)); }
+    add('no leading zeros', core);
+    if (core.length >= 2){ add('without check digit', core.slice(0, -1)); }
+    var u12 = core.length <= 12 ? pad(core, 12) : (core.length === 13 && core.charAt(0) === '0' ? core.slice(1) : '');
+    if (u12.length === 12) add('NIH-style spacing', spaced(u12));
+    return out;
+  }
+  // Two UPCs "match" when they agree after removing spaces, leading zeros, and optionally the check digit
+  function sameUpc(a, b){
+    var x = stripZeros(digits(a)), y = stripZeros(digits(b));
+    if (!x || !y) return false;
+    if (x === y) return true;
+    if (x.length > 6 && y.length > 6 && (x.slice(0, -1) === y || y.slice(0, -1) === x)) return true;
+    return false;
+  }
+
+  /* ---------- NIH lookup ---------- */
+  function getJSON(url){
+    return fetch(url).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+  function hitsOf(j){
+    if (!j) return [];
+    if (j.hits && j.hits.length !== undefined) return j.hits;
+    if (j.hits && j.hits.hits) return j.hits.hits;
+    if (j.length !== undefined) return j;
+    return [];
+  }
+  function srcOf(h){ return h && h._source ? h._source : (h || {}); }
+  function idOf(h){ var s = srcOf(h); return s.id || h._id || s.dsld_id; }
+
+  // Each strategy is a URL builder; the test shows which ones the NIH service actually answers
+  var STRATEGIES = [
+    { name: 'keyword search', url: function(v){ return API + '/browse-products?method=by_keyword&q=' + encodeURIComponent(v) + '&size=10'; } },
+    { name: 'search-filter', url: function(v){ return API + '/search-filter?q=' + encodeURIComponent(v) + '&size=10'; } }
+  ];
+
+  var runId = 0, stNih = '', stSrv = '';
+  function showStatus(d){ $('camMsg').innerHTML = 'Read <b>' + esc(d) + '</b>. ' + stNih + ' ' + stSrv; }
+
+  var BADGE = { found: 'found', none: 'no match', error: 'problem', skipped: 'not set up' };
+  function serverLookup(d, my){
+    $('sources').innerHTML = 'Asking each database… (up to 10 seconds)';
+    $('nameHits').innerHTML = '';
+    fetch('/.netlify/functions/barcode-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: d }) })
+      .then(function(r){ return r.text().then(function(t){ var j = null; try { j = JSON.parse(t); } catch (e) {} return { ok: r.ok, status: r.status, j: j, t: t }; }); })
+      .then(function(x){
+        if (my !== runId) return;
+        if (!x.ok || !x.j || !x.j.results){
+          var why = x.status === 404 ? 'The lookup function is not on this page\u2019s site yet (404).' : x.status === 403 ? 'The server refused the request (origin not allowed).' : 'The lookup returned an error (' + x.status + ').';
+          $('sources').innerHTML = '<span class="bad">' + esc(why) + '</span>'; stSrv = '<span class="bad">Databases: no answer.</span>'; showStatus(d); log('barcode-lookup: HTTP ' + x.status + ' ' + (x.t || '').slice(0, 120)); return;
+        }
+        var html = '', names = [];
+        x.j.results.forEach(function(r){
+          log('source ' + r.source + ': ' + r.state + ' (' + r.ms + ' ms) ' + (r.note || ''));
+          (r.matches || []).forEach(function(m){ log('   name from ' + r.source + ': ' + (m.brand || '') + ' | ' + (m.name || '') + ' | UPC ' + (m.upc || '')); });
+          html += '<div class="src"><b>' + esc(r.label) + '</b><span class="badge ' + esc(r.state) + '">' + esc(BADGE[r.state] || r.state) + '</span> <span class="small">' + r.ms + ' ms</span>';
+          (r.matches || []).forEach(function(m, i){
+            var q = (m.brand ? m.brand + ' ' : '') + (m.name || '');
+            names.push(r.label);
+            html += '<div style="margin-top:4px"><b>' + esc(m.brand || '') + '</b> ' + esc(m.name || '') + (m.upc ? '<div class="small">UPC ' + esc(m.upc) + '</div>' : '') +
+              '<button class="alt mini" data-name="' + esc(q.replace(/\s+/g, ' ').trim().slice(0, 90)) + '">Find this name in NIH</button></div>';
+          });
+          if (r.note) html += '<div class="small" style="margin-top:3px">' + esc(r.note) + '</div>';
+          html += '</div>';
+        });
+        $('sources').innerHTML = html;
+        var uniq = names.filter(function(n, i){ return names.indexOf(n) === i; });
+        var allNames = []; x.j.results.forEach(function(r){ if (r.source !== 'dsld'){ (r.matches || []).forEach(function(m){ allNames.push({ brand: m.brand || '', name: m.name || '' }); }); } });
+        if (allNames.length) smartNameSearch(d, allNames, true);
+        stSrv = uniq.length ? '<span class="ok">Databases that know it: ' + esc(uniq.join(', ')) + '.</span>' : '<span class="bad">No product database knew this number.</span>';
+        showStatus(d);
+      }, function(e){
+        if (my !== runId) return;
+        $('sources').innerHTML = '<span class="bad">Could not reach the lookup (' + esc(e.message) + ').</span> This card works only on the Netlify preview, not from a saved file.';
+        stSrv = '<span class="bad">Databases: no answer.</span>'; showStatus(d); log('barcode-lookup failed: ' + e.message);
+      });
+  }
+  // name -> NIH label search (this is the step the real app would use after a barcode names the product)
+  /* ---------- name -> NIH label matching ---------- */
+  var STOP = { ct:1, count:1, counts:1, tablet:1, tablets:1, softgel:1, softgels:1, capsule:1, capsules:1, caplet:1, caplets:1, gummies:1, gummy:1, pack:1, of:1, the:1, and:1, with:1, for:1, supplement:1, dietary:1, bottle:1, pk:1, 'x':1,
+    more:1, than:1, a:1, an:1, month:1, months:1, supply:1, packaging:1, may:1, vary:1, varies:1, value:1, size:1, bonus:1, new:1, free:1 };
+  var UNITS = { mg:1, mcg:1, ug:1, iu:1, g:1, ml:1, cfu:1 };
+  var CORP = { inc:1, llc:1, ltd:1, corp:1, corporation:1, co:1, company:1, com:1, services:1, service:1, usa:1, us:1, international:1, brands:1, group:1, holdings:1, products:1, enterprises:1, lp:1, plc:1 };
+  function normText(t){
+    return String(t || '').toLowerCase().replace(/µg/g, 'mcg').replace(/\([^)]*\)/g, ' ').replace(/(\d),(\d{3})/g, '$1$2').replace(/\b\d+\s*months?\b/g, ' ')
+      .replace(/\b(\d+)\s*(?:liquid\s+|vegetarian\s+|veggie\s+|chewable\s+)?(ct|count|counts|tablets?|capsules?|softgels?|caplets?|gummies|pk)\b/g, ' ')
+      .replace(/\bd[\s-]?3\b/g, 'd3').replace(/\bb[\s-]?12\b/g, 'b12').replace(/\bb[\s-]?6\b/g, 'b6').replace(/\bk[\s-]?2\b/g, 'k2')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function toks(t){ return normText(t).split(' ').filter(function(w){ return w && !STOP[w]; }); }
+  function uniq(a){ return a.filter(function(v, i){ return a.indexOf(v) === i; }); }
+  // strengths such as "400iu" or "1000mcg" (a number followed by a unit); pack counts are not strengths
+  function strengthsOf(t){
+    var s = String(t || '').toLowerCase().replace(/µg/g, 'mcg').replace(/(\d),(\d{3})/g, '$1$2'), out = [], re = /(\d+(?:\.\d+)?)\s*(mg|mcg|ug|iu|g|ml|cfu)\b/g, m;
+    while ((m = re.exec(s))) out.push(m[1] + (m[2] === 'ug' ? 'mcg' : m[2]));
+    return out;
+  }
+  // The product's short name: the words before the first dash / comma / pipe / colon of a long marketing title, brand removed.
+  // "Pure Encapsulations Magnesium (Citrate) | Supplement for Sleep, Heart Health..." -> core ["magnesium"], full ["magnesium","citrate"].
+  // core ignores parentheses (they are often pack or form notes); full keeps the words inside them (often the form: Citrate, Glycinate).
+  var coreGENERIC = { vitamin:1, vitamins:1, mineral:1, minerals:1, supplement:1, herbal:1, natural:1, organic:1, extract:1, complex:1, formula:1, support:1, multi:1 };
+  function coreParts(name, bTok){
+    var segs = String(name || '').replace(/[®™]/g, ' ').split(/\s[-–—]\s|[,;:|*•]/), core = [], full = [], k, c, f, real;
+    for (k = 0; k < segs.length; k++){
+      c = toks(segs[k]).filter(function(w){ return bTok.indexOf(w) < 0; });
+      f = toks(String(segs[k]).replace(/[()]/g, ' ')).filter(function(w){ return bTok.indexOf(w) < 0; });
+      core = core.concat(c); full = full.concat(f);
+      real = core.filter(function(w){ return !/^\d+$/.test(w) && !UNITS[w] && !coreGENERIC[w]; });
+      if (real.length) break;
+    }
+    return { core: uniq(core), full: uniq(full) };
+  }
+  function cleanBrandOf(b){ return toks(b).filter(function(w){ return !CORP[w]; }).join(' '); }
+  function hitsList(j){ return (j && j.hits && j.hits.hits ? j.hits.hits : (j && j.hits) || []); }
+  function srcOfHit(h){ var x = h._source !== undefined ? h._source : h; if (typeof x === 'string'){ try { x = JSON.parse(x); } catch (e) {} } return { id: String((x && (x.id || x.dsldId)) || h._id || ''), name: (x && (x.fullName || x.name)) || '', brand: (x && x.brandName) || '', upc: x && x.upcSku }; }
+  function getJ(u){ return fetch(u).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+
+  // pull the version facts NIH keeps on each label: market status, entry date, and links to other versions of the same product
+  function labelMeta(c, l){
+    c.upc = l.upcSku; c.off = l.offMarket; c.entry = l.entryDate || '';
+    c.rel = (l.labelRelationships || []).map(function(r){ return String(r.labelId); });
+    var ev = (l.events || []).filter(function(e){ return /off market/i.test(e.type || ''); })[0];
+    c.offDate = ev ? ev.date : '';
+    return c;
+  }
+  function statusText(c){
+    var s = [];
+    if (c.off === 1) s.push('off market' + (c.offDate ? ' since ' + c.offDate : '')); else if (c.off === 0) s.push('on market');
+    if (c.entry) s.push('entered NIH ' + c.entry);
+    return s.join(' · ');
+  }
+  function cmpCand(a, b){ return b.score - a.score || (b.close || 0) - (a.close || 0) || (b.extra || 0) - (a.extra || 0) || (a.off || 0) - (b.off || 0) || String(b.entry || '').localeCompare(String(a.entry || '')); }
+
+  // names = [{brand, name}] from the barcode databases; code = the scanned digits.
+  // The barcode databases are sloppy about brand names (UPCitemdb may give the parent company), so the brand is only
+  // a ranking hint. What proves a label is the right one is its UPC, so every promising candidate is opened and compared.
+  function smartNameSearch(code, names, auto){
+    var box = $('nameHits');
+    box.innerHTML = '<div class="small" style="margin-top:8px">Matching the name to NIH labels…</div>';
+    var brand = '', best = null, allText = {}, wantStr = [];
+    names.forEach(function(n){
+      if (!brand){ var cb = cleanBrandOf(n.brand); if (cb) brand = cb; }
+      toks(n.brand + ' ' + n.name).forEach(function(w){ allText[w] = 1; });
+      wantStr = wantStr.concat(strengthsOf(n.name));
+      var t = toks(n.name); if (!best || t.length > best.t.length) best = { t: t, n: n };
+    });
+    wantStr = uniq(wantStr);
+    if (!best){ box.innerHTML = '<div class="bad" style="margin-top:8px">No product name to search with.</div>'; return; }
+    var brandToks = toks(brand);
+    var kw = best.t.filter(function(w){ return brandToks.indexOf(w) < 0; });
+    var parts = coreParts(best.n.name, brandToks), core = parts.core.length ? parts.core : kw, shortFull = parts.full.length ? parts.full : core;
+    var textOf = function(a){ return a.filter(function(w){ return !/^\d+$/.test(w) && !UNITS[w]; }).slice(0, 4).join(' '); };
+    var q = textOf(shortFull) || textOf(core) || core.slice(0, 4).join(' ');
+    var qCore = textOf(core);
+    var guesses = [];
+    if (brand) guesses.push(brand);
+    var first2 = best.t.slice(0, 2).join(' ');
+    if (brand && first2 && guesses.indexOf(first2) < 0 && brandToks.some(function(w){ return best.t.slice(0, 2).indexOf(w) >= 0; })) guesses.push(first2);
+    log('Name match: brand "' + brand + '"' + (guesses.length > 1 ? ' (also trying "' + guesses.slice(1).join('", "') + '")' : '') + ', core name "' + core.join(' ') + '", short name "' + shortFull.join(' ') + '", keywords "' + kw.join(' ') + '", strengths "' + wantStr.join(' ') + '", query "' + q + '"');
+
+    var plan = [];
+    guesses.forEach(function(g){ plan.push({ label: 'search-filter + brand "' + g + '"', url: API + '/search-filter?q=' + encodeURIComponent(q) + '&brand=' + encodeURIComponent(g) + '&status=2&size=25' }); });
+    if (qCore && qCore !== q && guesses.length) plan.push({ label: 'search-filter + brand "' + guesses[0] + '" (core words)', url: API + '/search-filter?q=' + encodeURIComponent(qCore) + '&brand=' + encodeURIComponent(guesses[0]) + '&status=2&size=25' });
+    plan.push({ label: 'search-filter (words only)', url: API + '/search-filter?q=' + encodeURIComponent(q) + '&status=2&size=25' });
+    if (guesses.length) plan.push({ label: 'brand list', url: API + '/brand-products?q=' + encodeURIComponent(guesses[guesses.length - 1]) + '&size=1000' });
+    if (!q) plan = [];
+
+    var pool = {}, opened = {}, hiddenStrength = 0, i = 0;
+    function fitOf(c){
+      var cb = toks(c.brand), need = core.filter(function(w){ return cb.indexOf(w) < 0; });
+      if (!need.length) return 0;
+      var ct = toks(c.name), hit = 0; need.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
+      return hit / need.length;
+    }
+    function closeOf(c){
+      var cb = toks(c.brand), cf = toks(String(c.name || '').replace(/[()]/g, ' ')).filter(function(w){ return cb.indexOf(w) < 0; });
+      if (!cf.length || !shortFull.length) return 0;
+      var inter = 0; shortFull.forEach(function(w){ if (cf.indexOf(w) >= 0) inter++; });
+      return inter / (shortFull.length + cf.length - inter);
+    }
+    function extraFit(c){
+      var cb = toks(c.brand), ex = kw.filter(function(w){ return core.indexOf(w) < 0 && cb.indexOf(w) < 0; });
+      if (!ex.length) return 0;
+      var ct = toks(c.name), hit = 0; ex.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
+      return hit / ex.length;
+    }
+    function decorate(c){
+      c.score = fitOf(c); c.extra = extraFit(c); c.close = closeOf(c);
+      var cb = toks(c.brand);
+      c.brandOk = !cb.length || cb.every(function(w){ return allText[w]; });
+      var cs = strengthsOf(c.name);
+      c.strOk = !wantStr.length || !cs.length || cs.some(function(s){ return wantStr.indexOf(s) >= 0; });
+      return c;
+    }
+    function finish(pl){
+      var all = Object.keys(pool).map(function(k){ return pool[k]; });
+      var exact = all.filter(function(c){ return c.exact; })[0];
+      var list;
+      if (exact){ list = [exact]; }
+      else {
+        list = all.filter(function(c){ return c.brandOk && c.strOk; }).sort(cmpCand).slice(0, 8);
+        if (!list.length) list = all.filter(function(c){ return c.strOk; }).sort(cmpCand).slice(0, 5);
+      }
+      hiddenStrength = all.filter(function(c){ return !c.strOk && c !== exact; }).length;
+      smartDone = true;
+      if (!list.length){
+        box.innerHTML = '<div class="bad" style="margin-top:8px">NIH has no label that fits “' + esc(best.n.brand + ' ' + best.n.name) + '”.</div>';
+        log('Name match: nothing found' + (hiddenStrength ? ' (' + hiddenStrength + ' label(s) with a different strength were set aside)' : ''));
+        stNih = '<span class="bad">No NIH label found by name.</span>'; showStatus(code); return;
+      }
+      log(exact ? 'Name match: EXACT UPC match → label ' + exact.id : 'Name match: ' + list.length + ' close label(s), none with the same UPC' + (hiddenStrength ? '; ' + hiddenStrength + ' other-strength label(s) set aside' : ''));
+      list.forEach(function(c){ log('   NIH label ' + c.id + ': ' + c.brand + ' | ' + c.name + ' | UPC ' + (c.upc || '') + ' | fit ' + Math.round(c.score * 100) + '%' + (c.exact ? ' | SAME UPC' : '') + (c.brandOk ? '' : ' | different brand') + (statusText(c) ? ' | ' + statusText(c) : '')); });
+      box.innerHTML = '<div style="margin-top:8px"><b>' + (exact ? 'Exact match in NIH' : 'Closest NIH labels (pack size or UPC differs)') + '</b> <span class="small">via ' + esc(pl ? pl.label : 'search') + '</span></div>'
+        + list.map(function(c){
+          return '<div class="hit"><b>' + esc(c.brand) + '</b> ' + esc(c.name) + (c.exact ? ' <span class="badge found">same UPC</span>' : '') + (c.brandOk ? '' : ' <span class="badge none">different brand</span>')
+            + '<div class="small">label id ' + esc(c.id) + (c.upc ? ' · NIH UPC ' + esc(c.upc) : ' · no UPC on file') + ' · name fit ' + Math.round(c.score * 100) + '%</div>' + (statusText(c) ? '<div class="small">' + esc(statusText(c)) + '</div>' : '') + '</div>';
+        }).join('')
+        + (hiddenStrength ? '<div class="small" style="margin-top:6px">' + hiddenStrength + ' label(s) with a different strength were left out.</div>' : '');
+      if (exact) loadRelated(exact);
+      stNih = exact ? '<span class="ok">NIH label found: ' + esc(exact.brand + ' — ' + exact.name) + '</span>' : '<span class="ok">Closest NIH labels listed below.</span>';
+      showStatus(code);
+    }
+    // NIH links older and newer printings of the same product ("image difference, same product"); show where they stand
+    function loadRelated(ex){
+      var seen = {}; seen[ex.id] = 1;
+      var queue = (ex.rel || []).slice(), out = [];
+      function show(){
+        out.sort(function(a, b){ return (a.unavailable ? 1 : 0) - (b.unavailable ? 1 : 0) || (a.off || 0) - (b.off || 0) || String(b.entry || '').localeCompare(String(a.entry || '')); });
+        var good = out.filter(function(c){ return !c.unavailable; });
+        var anyOn = (ex.off === 0) || good.some(function(c){ return c.off === 0; });
+        var html = '';
+        if (ex.off === 1 && !anyOn) html += '<div class="bad" style="margin-top:8px">NIH marks every version of this product that it lets us read as off market, so the bottle in your hand may be a newer formulation than any of them. Compare the ingredient list before trusting this match.</div>';
+        else if (ex.off === 1) html += '<div class="small" style="margin-top:8px">The label that matched is off market; a version that is still on market is listed below.</div>';
+        if (out.length){
+          html += '<div style="margin-top:8px"><b>Other NIH labels for the same product</b></div>';
+          out.forEach(function(c){
+            log('   related NIH label ' + c.id + (c.unavailable ? ': not available from NIH' : ': ' + c.brand + ' | ' + c.name + ' | UPC ' + (c.upc || '') + ' | ' + statusText(c)));
+            html += c.unavailable
+              ? '<div class="hit"><span class="small">label id ' + esc(c.id) + ' is linked by NIH but NIH did not return it.</span></div>'
+              : '<div class="hit"><b>' + esc(c.brand) + '</b> ' + esc(c.name) + '<div class="small">label id ' + esc(c.id) + (c.upc ? ' · NIH UPC ' + esc(c.upc) : ' · no UPC on file') + '</div><div class="small">' + esc(statusText(c)) + '</div></div>';
+          });
+        }
+        var rb = document.createElement('div'); rb.innerHTML = html; box.appendChild(rb);
+      }
+      function next(){
+        if (!queue.length || out.length >= 8) return show();
+        var id = queue.shift(); if (seen[id]) return next(); seen[id] = 1;
+        getJ(API + '/label/' + encodeURIComponent(id)).then(function(l){
+          if (l && l.id){ var c = labelMeta({ id: String(l.id), brand: l.brandName || '', name: l.fullName || '', score: 0 }, l); out.push(c); (c.rel || []).forEach(function(r){ if (!seen[r]) queue.push(r); }); }
+          else out.push({ id: id, unavailable: true });
+        }, function(){ out.push({ id: id, unavailable: true }); }).then(next);
+      }
+      next();
+    }
+    function step(){
+      if (i >= plan.length) return finish(null);
+      var pl = plan[i++];
+      getJ(pl.url).then(function(j){
+        var cands = hitsList(j).map(srcOfHit).filter(function(c){ return c.id; }).map(decorate);
+        log('Name match via ' + pl.label + ': ' + cands.length + ' candidate(s)');
+        // open the most promising ones we have not opened yet (best brand and strength first), then compare UPCs
+        var todo = cands.filter(function(c){ return c.score >= 0.5 && !opened[c.id]; })
+          .sort(function(a, b){ return ((b.brandOk ? 2 : 0) + (b.strOk ? 1 : 0)) - ((a.brandOk ? 2 : 0) + (a.strOk ? 1 : 0)) || b.score - a.score || b.close - a.close || b.extra - a.extra; }).slice(0, 10);
+        // nothing fit the name well: still open the first few labels of the right brand, because the UPC is the real proof
+        if (!todo.length && brandToks.length) todo = cands.filter(function(c){ return c.brandOk && c.strOk && !opened[c.id]; }).slice(0, 6);
+        return Promise.all(todo.map(function(c){
+          opened[c.id] = 1;
+          return getJ(API + '/label/' + encodeURIComponent(c.id)).then(function(l){ labelMeta(c, l); c.exact = sameUpc(l.upcSku, code); pool[c.id] = c; }, function(){ pool[c.id] = c; });
+        })).then(function(){
+          var hasExact = Object.keys(pool).some(function(k){ return pool[k].exact; });
+          if (hasExact) finish(pl); else step();
+        });
+      }).catch(function(e){ log('Name match error (' + pl.label + '): ' + e.message); step(); });
+    }
+    step();
+  }
+  function nameSearch(q){ smartNameSearch(lastCode, [{ brand: '', name: q }], false); }
+  var lastCode = '', smartDone = false;
+  $('sources').addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('[data-name]'); if (b) nameSearch(b.getAttribute('data-name')); });
+
+  var lastLookupAt = 0;
+  function lookup(raw){
+    var dn = digits(raw);
+    if (dn && dn === lastCode && Date.now() - lastLookupAt < 8000){ log('Same barcode read again within 8 seconds; ignoring the duplicate'); return; }
+    lastLookupAt = Date.now();
+    var my = ++runId;
+    var d = digits(raw); lastCode = d; smartDone = false;
+    $('raw').textContent = raw || '—';
+    if (!d){ $('result').innerHTML = '<span class="bad">No digits found.</span>'; return; }
+    $('fmt').textContent = d.length + ' digits · check digit ' + (checkOk(d) ? 'valid' : 'does NOT validate (misread, or a non-UPC code)');
+    var vars = variantsOf(raw);
+    $('variants').textContent = vars.map(function(v){ return (v.label + ':').padEnd(26) + v.value; }).join('\n');
+    log('Scanned "' + raw + '" → ' + d.length + ' digits; check digit ' + (checkOk(d) ? 'ok' : 'FAIL') + '; ' + vars.length + ' variants');
+    $('result').innerHTML = '<span class="mute">Searching NIH…</span>';
+    stNih = 'Searching the NIH database…'; stSrv = 'Asking the product databases…'; showStatus(d);
+    try { $('raw').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+
+    serverLookup(d, my);
+    var found = null, tried = 0, work = [];
+    STRATEGIES.forEach(function(st){
+      vars.forEach(function(v){ work.push({ st: st, v: v }); });
+    });
+    // run sequentially; stop at the first confirmed match
+    function next(i){
+      if (my !== runId) return Promise.resolve();
+      if (found || i >= work.length) return Promise.resolve();
+      var w = work[i], url = w.st.url(w.v.value);
+      tried++;
+      return getJSON(url).then(function(j){
+        var hits = hitsOf(j);
+        log(w.st.name + ' · ' + w.v.label + ' (' + w.v.value + ') → ' + hits.length + ' hit(s)');
+        if (!hits.length) return next(i + 1);
+        // does a hit already carry a UPC we can compare?
+        var hitsWithUpc = hits.filter(function(h){ return srcOf(h).upcSku !== undefined; });
+        var m = hitsWithUpc.filter(function(h){ return sameUpc(srcOf(h).upcSku, d); })[0];
+        if (m){ found = { h: m, via: w.st.name + ' / ' + w.v.label, upc: srcOf(m).upcSku }; return; }
+        if (hitsWithUpc.length === hits.length) return next(i + 1);   // all had UPCs and none matched
+        // otherwise open the first few labels and compare their UPCs
+        var ids = hits.slice(0, 5).map(idOf).filter(Boolean);
+        return Promise.all(ids.map(function(id){
+          return getJSON(API + '/label/' + encodeURIComponent(id)).then(function(l){ return { id: id, l: l }; }, function(){ return null; });
+        })).then(function(ls){
+          ls = ls.filter(Boolean);
+          ls.forEach(function(x){ log('   label ' + x.id + ' UPC field: "' + (x.l.upcSku || '') + '"'); });
+          var mm = ls.filter(function(x){ return sameUpc(x.l.upcSku, d); })[0];
+          if (mm){ found = { h: { _source: { id: mm.id, fullName: mm.l.fullName, brandName: mm.l.brandName } }, via: w.st.name + ' / ' + w.v.label, upc: mm.l.upcSku }; return; }
+          return next(i + 1);
+        });
+      }, function(e){
+        log(w.st.name + ' · ' + w.v.label + ' → error: ' + e.message);
+        return next(i + 1);
+      });
+    }
+    next(0).then(function(){
+      if (my !== runId) return;
+      if (found){
+        var s = srcOf(found.h);
+        $('result').innerHTML = '<div class="ok">Found in the NIH database</div>'
+          + '<div class="hit"><b>' + esc(s.brandName || '') + '</b><br>' + esc(s.fullName || s.name || '') + '</div>'
+          + '<div class="mute">NIH label id ' + esc(String(idOf(found.h))) + ' · NIH UPC field "' + esc(found.upc || '') + '"<br>Matched via ' + esc(found.via) + ' · ' + tried + ' attempt(s)</div>';
+        log('MATCH via ' + found.via + ' after ' + tried + ' attempt(s)');
+        stNih = '<span class="ok">NIH: ' + esc((s.brandName || '') + ' — ' + (s.fullName || s.name || '')) + '</span>'; showStatus(d);
+      } else {
+        $('result').innerHTML = '<div class="bad">No NIH product matched this number.</div><div class="mute">' + tried + ' attempt(s). Not every supplement has a UPC on file at NIH. The log below shows what each attempt returned.</div>';
+        log('NO MATCH after ' + tried + ' attempt(s)');
+        if (!smartDone){ stNih = '<span class="bad">NIH has no label with that UPC (checking by name…).</span>'; showStatus(d); }
+      }
+    });
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+
+  /* ---------- camera ---------- */
+  var stream = null, loopTimer = null, zxReader = null, nativeDet = null, lastSeen = '', lastAt = 0, busy = false;
+  var standalone = !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+
+  function hasZX(){ return !!(window.ZXing && ZXing.BrowserMultiFormatReader); }
+  var mfr = null;
+  function getReader(){
+    if (mfr || !hasZX()) return mfr;
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    mfr = new ZXing.MultiFormatReader();
+    mfr.setHints(hints);
+    return mfr;
+  }
+  // A read counts only if it is a real product number: digits only, 8/12/13/14 long, correct check digit (UPC-E is expanded first).
+  // A QR code, a smudge or noise between bars gives something else and is ignored.
+  function validRead(text){
+    var d = String(text || '').replace(/\s+/g, '');
+    if (!/^\d+$/.test(d)) return false;
+    if (d.length === 8){
+      if (checkOk(d)) return true;
+      var a = upcEtoA(d); return !!(a && checkOk(a));
+    }
+    return (d.length === 12 || d.length === 13 || d.length === 14) && checkOk(d);
+  }
+  var cand = '', candAt = 0, lastIgnored = '', lastIgnoredAt = 0;
+  function seenLive(text, format){
+    if (!validRead(text)){
+      var n = Date.now();
+      if (text !== lastIgnored || n - lastIgnoredAt > 5000){ lastIgnored = text; lastIgnoredAt = n; log('Ignored a read that is not a product barcode: "' + String(text).slice(0, 60) + '" (' + (format || '?') + ')'); }
+      return;
+    }
+    var now = Date.now();
+    if (cand === text && now - candAt < 2500){ cand = ''; gotCode(text, format); }
+    else { cand = text; candAt = now; }
+  }
+  // Decode a canvas with ZXing; returns { getText, getBarcodeFormat } or null
+  function zxDecode(canvas){
+    var rd = getReader(); if (!rd) return null;
+    var src = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+    var binarizers = [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer];
+    for (var i = 0; i < binarizers.length; i++){
+      try { var r = rd.decode(new ZXing.BinaryBitmap(new binarizers[i](src))); if (r && validRead(r.getText())) return r; } catch (e) { /* not found with this binarizer */ }
+    }
+    return null;
+  }
+  function stopCam(){
+    if (loopTimer){ clearInterval(loopTimer); loopTimer = null; }
+    if (stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    $('vid').srcObject = null;
+    $('vid').hidden = true; $('stopBtn').hidden = true; $('startBtn').hidden = false;
+  }
+  function gotCode(text, format){
+    var now = Date.now();
+    if (text === lastSeen && now - lastAt < 10000) return;
+    lastSeen = text; lastAt = now;
+    log('Read "' + text + '" (' + (format || '?') + ')');
+    $('manual').value = text;
+    stopCam();
+    lookup(text);
+  }
+  function camFail(msg, detail){
+    log('Camera problem: ' + detail);
+    $('camMsg').innerHTML = '<span class="bad">' + esc(msg) + '</span> Use “Take a photo of the barcode instead” below, or type the number.';
+    stopCam();
+  }
+  // Try one frame of the live video (centre strip, scaled up) with whichever decoder we have
+  var cv = document.createElement('canvas');
+  function scanFrame(){
+    var v = $('vid');
+    if (busy || !v.videoWidth) return;
+    busy = true;
+    var done = function(){ busy = false; };
+    if (nativeDet){
+      nativeDet.detect(v).then(function(r){ if (r && r.length){ var ok = r.filter(function(x){ return validRead(x.rawValue); })[0]; if (ok) seenLive(ok.rawValue, ok.format); } }, function(){}).then(done, done);
+      return;
+    }
+    try {
+      // read only the middle of the picture (80% wide, 46% tall) so a QR code or another barcode at the edge is not looked at
+      var vw = v.videoWidth, vh = v.videoHeight, sw = Math.round(vw * 0.8), sh = Math.round(vh * 0.46), sx = Math.round((vw - sw) / 2), sy = Math.round((vh - sh) / 2);
+      cv.width = sw; cv.height = sh;
+      cv.getContext('2d', { willReadFrequently: true }).drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+      var res = zxDecode(cv);
+      if (res) seenLive(res.getText(), String(res.getBarcodeFormat()));
+    } catch (e) { /* no barcode in this frame — normal */ }
+    done();
+  }
+  function openStream(){
+    var tries = [
+      { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false }
+    ];
+    var n = 0;
+    function attempt(){
+      return navigator.mediaDevices.getUserMedia(tries[n]).catch(function(e){
+        log('getUserMedia attempt ' + (n + 1) + ' failed: ' + (e && e.name) + ' ' + (e && e.message));
+        if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e;
+        if (++n < tries.length) return attempt();
+        throw e;
+      });
+    }
+    return Promise.race([attempt(), new Promise(function(res, rej){
+      setTimeout(function(){ var e = new Error('The camera did not respond in 10 seconds'); e.name = 'TimeoutError'; rej(e); }, 10000);
+    })]);
+  }
+  function startCam(){
+    $('camMsg').textContent = 'Starting camera… if iPhone asks, tap Allow.';
+    if (!window.isSecureContext){ camFail('The camera needs a secure (https) page.', 'not a secure context'); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      camFail('This browser does not allow camera access here.', 'getUserMedia unavailable' + (standalone ? ' (Home Screen app mode)' : '')); return;
+    }
+    openStream().then(function(s){
+      stream = s;
+      var v = $('vid');
+      v.muted = true; v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('autoplay', '');
+      v.srcObject = s; v.hidden = false; $('stopBtn').hidden = false; $('startBtn').hidden = true;
+      var tr = s.getVideoTracks()[0];
+      log('Camera open: ' + (tr && tr.label || 'unnamed') + ' ' + (tr && tr.getSettings ? JSON.stringify(tr.getSettings()) : ''));
+      return new Promise(function(res, rej){
+        var t = setTimeout(function(){ rej(new Error('No video frames arrived after 6 seconds')); }, 6000);
+        function ready(){ if (v.videoWidth){ clearTimeout(t); res(); } }
+        v.onloadedmetadata = function(){ var p = v.play(); if (p && p.catch) p.catch(function(){}); ready(); };
+        v.onplaying = ready; v.onresize = ready;
+        var p = v.play(); if (p && p.catch) p.catch(function(){});
+        ready();
+      });
+    }).then(function(){
+      if (!stream) return;
+      if ('BarcodeDetector' in window){
+        try { nativeDet = new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8'] }); log('Using the built-in BarcodeDetector'); } catch (e) { nativeDet = null; }
+      }
+      if (!nativeDet){
+        if (!hasZX()){ camFail('The scanner library did not load.', 'ZXing missing'); return; }
+        getReader(); log('Using the ZXing scanner library');
+      }
+      $('camMsg').textContent = 'Point the camera at the barcode and hold steady (about a hand-width away).';
+      loopTimer = setInterval(scanFrame, 200);
+    }).catch(function(e){
+      var n = (e && e.name) || 'error';
+      var msg = n === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access (iPhone Settings → Safari → Camera, or tap Allow when asked).'
+              : n === 'NotFoundError' ? 'No camera was found.'
+              : n === 'NotReadableError' ? 'The camera is busy in another app.'
+              : n === 'TimeoutError' ? (standalone ? 'iPhone did not open the live camera in a Home Screen app.' : 'The camera did not respond.')
+              : 'The camera view would not start.';
+      camFail(msg, n + ' ' + ((e && e.message) || ''));
+    });
+  }
+
+  /* ---------- still photo fallback ---------- */
+  function decodeImageFile(file){
+    $('camMsg').textContent = 'Photo received (' + Math.round(file.size / 1024) + ' KB). Reading it…'; log('Photo file: ' + (file.type || 'unknown type') + ' ' + file.size + ' bytes');
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function(){
+      // downscale big phone photos so decoding is fast and reliable
+      var max = 1600, w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+      var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      log('Photo ' + w + 'x' + h + ' → ' + c.width + 'x' + c.height);
+      var tryNative = function(){
+        if (!('BarcodeDetector' in window)) return Promise.resolve(null);
+        try {
+          var det = new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8'] });
+          return det.detect(c).then(function(r){ var ok = (r || []).filter(function(x){ return validRead(x.rawValue); })[0]; return ok ? { t: ok.rawValue, f: ok.format } : null; }, function(){ return null; });
+        } catch (e) { return Promise.resolve(null); }
+      };
+      tryNative().then(function(hit){
+        if (!hit && hasZX()){
+          try { var r = zxDecode(c); if (r) hit = { t: r.getText(), f: String(r.getBarcodeFormat()) }; } catch (e) {}
+          if (!hit){   // second chance: just the middle band, which often isolates the bars
+            try {
+              var c2 = document.createElement('canvas'); c2.width = c.width; c2.height = Math.round(c.height * 0.4);
+              c2.getContext('2d').drawImage(c, 0, Math.round(c.height * 0.3), c.width, c2.height, 0, 0, c2.width, c2.height);
+              var r2 = zxDecode(c2); if (r2) hit = { t: r2.getText(), f: String(r2.getBarcodeFormat()) };
+            } catch (e) {}
+          }
+        }
+        if (hit){ $('camMsg').textContent = ''; lastSeen = ''; gotCode(hit.t, hit.f); }
+        else { log('No barcode found in the photo'); $('camMsg').innerHTML = '<span class="bad">No barcode found in that photo.</span> Retake it closer and sharper with the bars filling the frame, or type the number.'; }
+      });
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); camFail('Could not open that photo (' + (file.type || 'unknown format') + ').', 'image decode error'); };
+    img.src = url;
+  }
+
+  $('photoIn').addEventListener('change', function(e){ var f = e.target.files && e.target.files[0]; log('Photo picker returned ' + (f ? 'a file' : 'nothing')); if (f) decodeImageFile(f); else $('camMsg').textContent = 'No photo came back from the camera. Try again.'; e.target.value = ''; });
+  $('startBtn').addEventListener('click', function(){ log('Scan button tapped'); startCam(); });
+  document.querySelector('.photo-btn').addEventListener('click', function(){ stopCam(); });
+  $('stopBtn').addEventListener('click', function(){ stopCam(); $('camMsg').textContent = ''; });
+  $('goBtn').addEventListener('click', function(){ lookup($('manual').value); });
+  $('manual').addEventListener('keydown', function(e){ if (e.key === 'Enter') lookup($('manual').value); });
+  $('clearLog').addEventListener('click', function(){ logLines = []; logEl.textContent = ''; });
+  $('copyLog').addEventListener('click', function(){
+    var t = logLines.join('\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ $('copyLog').textContent = 'Copied'; setTimeout(function(){ $('copyLog').textContent = 'Copy log'; }, 1500); });
+  });
+
+  var envTxt = (standalone ? 'Running as a Home Screen app' : 'Running in the browser') + ' · secure page: ' + (window.isSecureContext ? 'yes' : 'NO') + ' · camera API: ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'yes' : 'NO') + ' · built-in detector: ' + ('BarcodeDetector' in window ? 'yes' : 'no') + ' · scanner library: ' + (hasZX() ? 'loaded' : 'NOT loaded');
+  $('envLine').textContent = envTxt;
+  $('camMsg').textContent = 'Ready. Tap Scan a barcode, or take a photo of the barcode.';
+  log('Page ready. ' + envTxt);
+  log('Browser: ' + navigator.userAgent);
+  window.__scanTest = { variantsOf: variantsOf, sameUpc: sameUpc, checkOk: checkOk, upcEtoA: upcEtoA, lookup: lookup };
+})();
+</script>
+</body>
+</html>

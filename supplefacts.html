@@ -1,0 +1,2287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SuppleFacts">
+<meta name="theme-color" content="#1B2A41">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/supplefacts.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/supplefacts-icons/favicon-32.png?v=2">
+<link rel="apple-touch-icon" href="/supplefacts-icons/apple-touch-icon.png?v=2">
+<title>SuppleFacts — Check the Evidence</title>
+<meta name="description" content="Search real supplement labels from the NIH Dietary Supplement Label Database, then check the evidence behind every ingredient.">
+<style>html{height:100%}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/*
+  Layout concept: a centered iPhone-style device frame holding the actual
+  app prototype (home search -> grouped results -> product label / ingredient
+  monograph, cross-linked both directions), with a short explanatory strip
+  underneath describing the real data sources this would run on.
+*/
+:root{
+  --bg:#EEF2F6;
+  --surface:#FFFFFF;
+  --surface-2:#F7FAFC;
+  --fg:#0f2a52;
+  --muted:#4A5568;
+  --line:#D8E1E9;
+  --accent:#1b6a4f;
+  --accent-ink:#14563f;
+  --gold:#C9A227;
+  --navy:#0f2a52;
+  --navy-dark:#0D1620;
+  --danger:#B3482F;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1620;
+    --surface:#16222F;
+    --surface-2:#1C2B3A;
+    --fg:#EAF0F5;
+    --muted:#9FB0BF;
+    --line:#28394A;
+    --accent:#2FA08D;
+    --accent-ink:#7FD6C4;
+    --gold:#D9BB55;
+    --navy:#16222F;
+    --navy-dark:#0A121A;
+    --danger:#E08064;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1620;
+  --surface:#16222F;
+  --surface-2:#1C2B3A;
+  --fg:#EAF0F5;
+  --muted:#9FB0BF;
+  --line:#28394A;
+  --accent:#2FA08D;
+  --accent-ink:#7FD6C4;
+  --gold:#D9BB55;
+  --navy:#16222F;
+  --navy-dark:#0A121A;
+  --danger:#E08064;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  padding-inline:16px;
+  padding-block:40px;
+}
+.wrap{max-width:900px;margin:0 auto;}
+
+.intro{max-width:640px;margin:0 auto 28px;text-align:center;}
+.eyebrow{
+  font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--accent-ink);font-weight:700;margin-bottom:10px;
+}
+.intro h1{
+  font-family:'Lora',Georgia,serif;font-weight:700;
+  font-size:clamp(24px,4.5vw,32px);margin:0 0 10px;letter-spacing:-.01em;
+  text-wrap:balance;
+}
+.intro p{color:var(--muted);line-height:1.55;font-size:14.5px;margin:0;}
+.concept-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:14px;padding:5px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--surface);
+  font-size:11.5px;font-weight:600;color:var(--muted);
+}
+.concept-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);}
+
+/* device frame */
+.stage{display:flex;justify-content:center;}
+.device{
+  width:min(100%,336px);
+  background:var(--navy-dark);
+  border-radius:44px;
+  padding:12px;
+  box-shadow:0 30px 60px -20px rgba(13,22,32,.45), 0 0 0 1px rgba(13,22,32,.08);
+}
+.screen{
+  position:relative;
+  background:var(--surface);
+  border-radius:34px;
+  overflow:hidden;
+  height:680px;
+  display:flex;
+  flex-direction:column;
+}
+.statusbar{
+  flex:0 0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 24px 2px;
+  font-size:13px;font-weight:600;color:var(--fg);
+  font-variant-numeric:tabular-nums;
+}
+.statusbar .icons{display:flex;gap:4px;align-items:center;color:var(--fg);opacity:.85;}
+.notch{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:120px;height:24px;background:var(--navy-dark);
+  border-bottom-left-radius:16px;border-bottom-right-radius:16px;
+  z-index:5;
+}
+
+.appbar{
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:10px;
+  padding:6px 14px 12px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.appbar .back{
+  all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;color:var(--accent-ink);
+  font-size:18px;font-weight:700;
+}
+.appbar .back:hover{background:var(--surface-2);}
+.appbar .back[hidden]{visibility:hidden;}
+.appbar .title{
+  font-family:'Lora',Georgia,serif;font-weight:700;font-size:17px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.appbar svg.mark{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:block}
+.appbar .mark{
+  width:22px;height:22px;border-radius:7px;
+  background:linear-gradient(145deg,var(--accent),var(--accent-ink));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:'Lora',serif;font-weight:700;font-size:12px;flex:0 0 auto;
+}
+
+.content{
+  flex:1 1 auto;
+  overflow-y:auto;
+  padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));
+  -webkit-overflow-scrolling:touch;
+}
+.home-indicator{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  width:120px;height:4px;border-radius:99px;background:var(--fg);opacity:.25;
+}
+
+/* search */
+.search-row{display:flex;gap:8px;margin-bottom:6px;}
+.search-box{
+  flex:1;display:flex;align-items:center;gap:8px;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px;
+}
+.search-box input{
+  all:unset;flex:1;min-width:0;font-size:14.5px;color:var(--fg);font-family:'Inter',sans-serif;
+}
+.search-box input::placeholder{color:var(--muted);}
+.search-go{
+  all:unset;cursor:pointer;background:var(--accent);color:#fff;
+  padding:10px 14px;border-radius:12px;font-size:13.5px;font-weight:600;
+}
+.mode-copy{font-size:12px;color:var(--muted);margin:2px 0 18px;}
+
+.section-label{
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;margin:18px 0 8px;
+}
+.section-label:first-child{margin-top:0;}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  all:unset;cursor:pointer;
+  padding:7px 13px;border-radius:99px;border:1px solid var(--line);
+  background:var(--surface-2);font-size:13px;font-weight:600;color:var(--fg);
+}
+.chip:hover{border-color:var(--accent);color:var(--accent-ink);}
+
+.card-list{display:flex;flex-direction:column;gap:8px;}
+.card{
+  all:unset;cursor:pointer;display:block;
+  border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+  background:var(--surface);
+}
+.card:hover{border-color:var(--accent);}
+.card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card .name{font-weight:600;font-size:14.5px;line-height:1.3;}
+.card .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.card .chev{color:var(--muted);font-size:16px;flex:0 0 auto;}
+.kind-tag{
+  display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--accent-ink);background:rgba(31,122,108,.12);
+  padding:2px 7px;border-radius:6px;margin-top:6px;
+}
+:root[data-theme="dark"] .kind-tag{ background:rgba(47,160,141,.18); }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .kind-tag{ background:rgba(47,160,141,.18); } }
+
+.empty{
+  text-align:center;color:var(--muted);font-size:13.5px;
+  padding:40px 10px;line-height:1.6;
+}
+
+/* product detail */
+.label-head{margin-bottom:14px;}
+.label-head .brand{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+.label-head h2{font-family:'Lora',Georgia,serif;font-size:19px;margin:3px 0 6px;line-height:1.25;}
+.label-head .form{font-size:12.5px;color:var(--muted);}
+
+.panel{
+  border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:12px;background:var(--surface);
+}
+.panel h3{
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  font-weight:700;margin:0 0 10px;
+}
+.ingredient-row{
+  all:unset;cursor:pointer;display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--line);
+}
+.ingredient-row:last-child{border-bottom:none;}
+.ingredient-row .iname{font-size:14px;font-weight:600;}
+.ingredient-row .idetail{font-size:11.5px;color:var(--muted);font-weight:400;}
+.ingredient-row .iamt{font-size:12.5px;color:var(--muted);white-space:nowrap;text-align:right;}
+.ingredient-row.linked .iname{color:var(--accent-ink);}
+.ingredient-row.ai-link .iname{color:var(--accent-ink);}
+.ingredient-row .link-hint{font-size:10.5px;color:var(--accent-ink);font-weight:700;}
+.ingredient-row .ai-hint{font-size:10px;color:var(--gold);font-weight:600;letter-spacing:.02em;text-transform:uppercase;}
+.other-ing{font-size:12.5px;color:var(--muted);line-height:1.6;}
+.claims{display:flex;flex-wrap:wrap;gap:6px;}
+.claim{
+  font-size:11.5px;font-weight:600;background:rgba(201,162,39,.14);color:#8a6a10;
+  padding:4px 9px;border-radius:7px;
+}
+:root[data-theme="dark"] .claim{ background:rgba(217,187,85,.16); color:var(--gold); }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .claim{ background:rgba(217,187,85,.16); color:var(--gold); } }
+.footnote{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;}
+.source-line{
+  font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:4px;
+}
+
+/* monograph detail */
+.mono-head{margin-bottom:12px;}
+.mono-head .kind{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+.mono-head h2{font-family:'Lora',Georgia,serif;font-size:21px;margin:3px 0 0;}
+
+.toggle{
+  display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;
+  margin:12px 0 14px;background:var(--surface-2);
+}
+.toggle button{
+  all:unset;cursor:pointer;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:8px;color:var(--muted);
+}
+.toggle button.active{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(13,22,32,.15);}
+
+.mono-section{margin-bottom:14px;}
+.mono-section h3{
+  font-size:12px;font-weight:700;color:var(--accent-ink);margin:0 0 5px;
+  display:flex;align-items:center;gap:6px;
+}
+.mono-section p{font-size:13.5px;line-height:1.58;color:var(--fg);margin:0;}
+
+.related-row{
+  all:unset;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface);
+  margin-bottom:7px;font-size:13px;font-weight:600;
+}
+.related-row:hover{border-color:var(--accent);}
+.related-row .chev{color:var(--muted);}
+
+.mono-footnote{
+  font-size:11px;color:var(--muted);line-height:1.55;margin-top:6px;
+  border-top:1px dashed var(--line);padding-top:10px;
+}
+
+.disclaimer-bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;
+  padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--line);background:var(--surface-2);
+  font-size:10.5px;color:var(--muted);line-height:1.4;
+}
+.disclaimer-bar .lock{flex:0 0 auto;}
+
+/* strip under the phone */
+.strip{
+  max-width:760px;margin:40px auto 0;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+}
+@media (max-width:620px){ .strip{grid-template-columns:1fr;} }
+.strip .f{
+  border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px 16px 17px;min-width:0;
+}
+.strip .f .n{
+  font-family:'Lora',Georgia,serif;font-weight:700;font-size:14.5px;margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;
+}
+.strip .f .n .ico{
+  width:24px;height:24px;border-radius:7px;flex:0 0 auto;
+  background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:13px;
+}
+.strip .f p{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0;}
+
+.note{
+  max-width:640px;margin:22px auto 0;text-align:center;
+  font-size:12px;color:var(--muted);line-height:1.6;
+}
+.note a{color:var(--accent-ink);}
+
+/* AI summary panel */
+.ai-panel-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;}
+.ai-panel-head .spark{font-size:13px;}
+.ai-intro{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0 0 11px;}
+.ai-btn{
+  all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  background:var(--accent);color:#fff;font-size:13px;font-weight:700;
+  padding:9px 15px;border-radius:10px;
+}
+.ai-btn:hover{background:var(--accent-ink);}
+.ai-btn[disabled]{opacity:.55;cursor:default;}
+.ai-state{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);}
+.ai-spinner{
+  width:13px;height:13px;border-radius:50%;flex:0 0 auto;
+  border:2px solid var(--line);border-top-color:var(--accent);
+  animation:ai-spin .7s linear infinite;
+}
+@keyframes ai-spin{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){ .ai-spinner{ animation:none; } }
+.ai-live{font-size:13.5px;line-height:1.62;color:var(--fg);white-space:pre-wrap;}
+.ai-meta{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  margin-top:11px;padding-top:9px;border-top:1px dashed var(--line);
+  font-size:11px;color:var(--muted);
+}
+.ai-meta .src{display:flex;align-items:center;gap:5px;}
+.ai-meta button{all:unset;cursor:pointer;color:var(--accent-ink);font-weight:700;font-size:11px;}
+.ai-error-box{font-size:12.5px;color:var(--danger);line-height:1.5;margin-bottom:8px;}
+.ai-unavail{font-size:12.5px;color:var(--muted);line-height:1.55;font-style:italic;}
+
+/* Investigate link */
+.investigate-panel{
+  border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:12px;background:var(--surface);
+  border-left:3px solid var(--gold);
+}
+.investigate-panel h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 8px;}
+.investigate-text{font-size:12.5px;color:var(--fg);line-height:1.55;margin-bottom:10px;}
+.investigate-btn{
+  all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  background:var(--gold);color:#1B2A41;font-size:13px;font-weight:700;
+  padding:9px 15px;border-radius:10px;
+}
+.investigate-btn:hover{background:var(--gold);opacity:.85;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .investigate-btn{ color:#EAF0F5; } }
+:root[data-theme="dark"] .investigate-btn{ color:#EAF0F5; }
+</style>
+<style>
+/* ===== Additions for the live site (everything above is the original design, unchanged) ===== */
+html,body{min-height:100%}
+button{font-family:inherit}
+
+/* Welcome screen (landing) — colors taken from the SuppleFacts cover page */
+.welcome{
+  --cv-cream:#faf8f3; --cv-navy:#0f2a52; --cv-gold:#9a6f12; --cv-gold-bright:#d4a826;
+  --cv-green:#1b6a4f; --cv-green-dark:#14563f; --cv-ink:#243247; --cv-muted:#5b6778;
+  position:absolute;inset:0;z-index:30;background:var(--cv-cream);
+  display:flex;flex-direction:column;padding:42px 0 0;overflow:hidden;
+}
+.welcome[hidden]{display:none!important}
+.welcome .cv-top{padding:10px 18px 0;text-align:center;flex:none}
+.welcome .cv-brand{display:flex;align-items:center;justify-content:center;gap:9px}
+.welcome .cv-brand svg{width:38px;height:38px;flex:none}
+.welcome .cv-name{font-family:'Lora',Georgia,serif;font-weight:700;font-size:29px;letter-spacing:-.4px;color:var(--cv-navy);line-height:1}
+.welcome .cv-name b{color:var(--cv-gold);font-weight:700}
+.welcome h1{
+  font-family:'Lora',Georgia,serif;font-weight:700;font-size:25px;line-height:1.12;letter-spacing:-.3px;
+  text-align:center;margin:13px 0 7px;color:var(--cv-navy);
+}
+.welcome h1 span{color:var(--cv-gold)}
+.welcome .cv-sub{margin:0 auto;max-width:270px;font-size:13px;line-height:1.35;color:var(--cv-ink)}
+.welcome .cv-hero{
+  flex:1;min-height:90px;margin-top:4px;
+  background:url('/supplefacts-icons/landing-hero.jpg') center 38%/cover no-repeat;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 86%,transparent 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 86%,transparent 100%);
+}
+.welcome .cv-feats{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:0 8px;flex:none}
+.welcome .cv-feat{text-align:center;padding:0 1px}
+.welcome .cv-ico{width:40px;height:40px;border-radius:50%;margin:0 auto 5px;display:grid;place-items:center}
+.welcome .cv-ico svg{width:21px;height:21px}
+.welcome .cv-feat h3{font-family:'Lora',Georgia,serif;font-size:12px;line-height:1.12;margin:0 0 3px;color:var(--cv-navy)}
+.welcome .cv-feat p{margin:0;font-size:9.5px;line-height:1.25;color:var(--cv-muted)}
+.welcome .cv-cta{padding:12px 16px 0;flex:none}
+.welcome .w-btn{
+  all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
+  background:var(--cv-green);color:#fff;font:700 13.5px 'Inter',-apple-system,sans-serif;letter-spacing:.08em;text-transform:uppercase;
+  padding:14px;border-radius:14px;box-shadow:0 6px 16px rgba(27,106,79,.28);
+}
+.welcome .w-btn:hover{background:var(--cv-green-dark)}
+.welcome .w-btn:focus-visible{outline:3px solid var(--cv-gold-bright);outline-offset:2px}
+.welcome .w-btn svg{width:18px;height:18px}
+.welcome .w-note{font-size:10px;color:var(--cv-muted);text-align:center;line-height:1.45;margin:0;padding:9px 16px 14px;flex:none}
+.welcome .w-note b{color:var(--cv-navy)}
+@media (max-height:690px){ .welcome .cv-sub{display:none} .welcome .cv-feat p{display:none} }
+
+/* Splash (shows ~1.6 s on open, then fades into the landing screen) */
+.sf-splash{
+  position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  background:radial-gradient(circle at 50% 42%,#1d4a85 0%,#0a2046 70%);
+  animation:sfSplashOut .5s ease 1.7s forwards;
+}
+.sf-splash svg{width:84px;height:84px;filter:drop-shadow(0 10px 22px rgba(0,0,0,.35));animation:sfPop .7s cubic-bezier(.2,.9,.3,1.2) both}
+.sf-splash .sw{font-family:'Lora',Georgia,serif;font-weight:700;font-size:31px;color:#fff;animation:sfRise .7s ease .25s both}
+.sf-splash .sw b{color:#d4a826;font-weight:700}
+.sf-splash .st{font-size:12px;color:#b9c6da;letter-spacing:.14em;text-transform:uppercase;animation:sfRise .7s ease .45s both}
+.sf-splash[hidden]{display:none!important}
+@keyframes sfPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes sfRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sfSplashOut{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.sf-splash,.sf-splash *{animation-duration:.01s!important;animation-delay:0s!important}.sf-splash{animation-delay:.6s!important}}
+
+/* live-data extras */
+.ingredient-row.sub{padding-left:14px}
+.ingredient-row.sub .iname{font-weight:500;font-size:13px}
+.ingredient-row.macro .iname{font-weight:500;color:var(--muted)}
+.status{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);padding:18px 4px}
+.err-box{font-size:13px;line-height:1.55;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface-2);margin:8px 0}
+.err-box a{color:var(--accent-ink);font-weight:600}
+.err-box button{
+  all:unset;cursor:pointer;display:inline-block;margin:8px 8px 0 0;
+  border:1px solid var(--accent);color:var(--accent-ink);font-weight:700;font-size:12.5px;
+  padding:7px 13px;border-radius:9px;
+}
+.upc{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+/* Layout: the iPhone frame is shown on tablets and desktops (original look);
+   on an actual phone the app fills the screen instead, so the frame doesn't waste space. */
+@media (min-width:501px){
+  .screen{height:min(780px,calc(100vh - 90px));min-height:560px}
+  .device{width:min(100%,360px)}
+}
+@media (max-width:500px){
+  body{padding:0!important}
+  .wrap{max-width:none;margin:0}
+  .stage{display:block}
+  .device{width:100%;height:100vh;height:100dvh;border-radius:0;padding:0;background:transparent;box-shadow:none}
+  .screen{height:100vh;height:100dvh;border-radius:0}
+  .notch,.statusbar,.home-indicator,.strip{display:none!important}
+  .welcome{padding-top:max(env(safe-area-inset-top),26px)}
+}
+
+/* ===== Home rails, Search tab, Guide tab, bottom tab bar (added Oct 2026; nothing above was removed) ===== */
+.tabs{flex:0 0 auto;display:flex;border-top:1px solid var(--line);background:var(--surface);padding:5px 6px 2px}
+.tabs button{all:unset;cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 0 8px;font:600 10px 'Inter',-apple-system,sans-serif;color:var(--muted);position:relative}
+.tabs button svg{width:22px;height:22px}
+.tabs button.on{color:var(--accent-ink)}
+.tabs button.on::after{content:"";position:absolute;bottom:1px;width:34px;height:3px;border-radius:2px;background:var(--accent)}
+.tabs button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;border-radius:8px}
+.home{margin:-16px -16px 0}
+.hero{position:relative;padding:16px 16px 16px;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0 0 0 40%;z-index:-1;background:url('/supplefacts-icons/home-hero.jpg') right center/cover no-repeat;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 40%);mask-image:linear-gradient(to right,transparent 0,#000 40%)}
+.hero h1{font-family:'Lora',Georgia,serif;font-size:20px;line-height:1.12;letter-spacing:-.3px;margin:0 0 6px;color:var(--fg);white-space:nowrap}
+.hero h1 span{color:#9a6f12}
+:root[data-theme="dark"] .hero h1 span{color:var(--gold)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .hero h1 span{color:var(--gold)} }
+.hero p{font-size:11.5px;line-height:1.35;margin:0 0 12px;max-width:190px;color:var(--fg)}
+.hero .search-row{margin:0}
+.hero .search-box{background:var(--surface);border-radius:30px;box-shadow:0 6px 18px rgba(15,42,82,.14);padding:5px 6px 5px 14px}
+.hero .search-box input{font-size:13.5px}
+.hero .search-go{border-radius:22px;padding:9px 14px}
+.sec{padding:14px 0 0}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 16px 8px}
+.sec-h h2{font-family:'Lora',Georgia,serif;font-size:15px;letter-spacing:-.2px;margin:0;color:var(--fg)}
+.sec-h small{display:block;font:500 10px 'Inter',sans-serif;color:var(--muted);margin-top:2px}
+.seeall{all:unset;cursor:pointer;white-space:nowrap;flex:none;margin-left:8px;color:var(--accent-ink);font:700 12px 'Inter',sans-serif;padding:4px 0}
+.rail{position:relative}
+.track{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 16px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-padding:0 16px}
+.track::-webkit-scrollbar{display:none}
+.rail::after{content:"";position:absolute;right:0;top:0;bottom:6px;width:26px;background:linear-gradient(to left,var(--surface),transparent);pointer-events:none;transition:opacity .2s}
+.rail.end::after{opacity:0}
+.arrow{all:unset;cursor:pointer;position:absolute;top:34px;z-index:3;width:28px;height:28px;border-radius:50%;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;place-items:center;color:var(--fg);font-size:17px;font-weight:700;text-align:center;line-height:28px}
+.arrow.l{left:4px}.arrow.r{right:4px}
+@media (hover:hover){.rail:hover .arrow{display:block}.rail.start .arrow.l{display:none!important}.rail.end .arrow.r{display:none!important}}
+.track.grid{flex-wrap:wrap;overflow:visible;scroll-snap-type:none}
+.tile{all:unset;display:flex;flex-direction:column;box-sizing:border-box;cursor:pointer;flex:none;scroll-snap-align:start;width:96px;border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:0 0 7px;text-align:center;box-shadow:0 2px 6px rgba(15,42,82,.07);transition:transform .12s,box-shadow .12s}
+.tile:active{transform:scale(.96)}
+.tile:hover{box-shadow:0 5px 14px rgba(15,42,82,.16)}
+.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tile .pic{height:72px;flex:none;border-radius:12px 12px 0 0;overflow:hidden;background:#f1f3f7}
+.tile .pic img{display:block;width:100%;height:100%;object-fit:cover}
+.tile .lb{font:700 11px/1.15 'Inter',sans-serif;color:var(--fg);padding:6px 4px 0;min-height:27px;display:flex;align-items:center;justify-content:center}
+.c-vit{background:#fbf1d4;color:#8a5f0a}.c-min{background:#e3ecf7;color:#1f4f8a}.c-herb{background:#e2f1e8;color:#1b6a4f}.c-oth{background:#e9edf4;color:#0f2a52}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin:4px 16px 0;font:600 9.5px 'Inter',sans-serif;color:var(--muted)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:-0.5px}
+.tile.brand{width:118px;padding:14px 10px 12px;text-align:left;border-top:3px solid #d4a826}
+.tile.brand .lb{padding:0;min-height:36px;justify-content:flex-start;text-align:left;font:700 14px/1.15 'Lora',Georgia,serif;letter-spacing:-.2px}
+.tile.brand.img{width:108px;padding:0;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.tile.brand.img img{display:block;width:100%;height:auto}
+.tile.brand .bar{height:4px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden}
+.tile.brand .bar b{display:block;height:100%;width:100%;background:var(--accent);border-radius:2px}
+.home .strip2{display:flex;align-items:center;gap:10px;margin:16px 16px 6px;padding:11px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;font-size:11px;line-height:1.35;color:var(--fg)}
+.srch h2.sh{font-family:'Lora',Georgia,serif;font-size:21px;margin:0 0 4px;letter-spacing:-.3px;line-height:1.15}
+.srch .sub{font-size:12px;line-height:1.45;color:var(--muted);margin:0 0 12px}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;margin:8px 0 6px}
+.seg button{all:unset;cursor:pointer;flex:1;text-align:center;font:600 12px 'Inter',sans-serif;color:var(--muted);padding:8px 4px;border-radius:9px}
+.seg button.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(13,22,32,.15)}
+.seg-help{font-size:11px;color:var(--muted);margin:0 2px 8px}
+.rec-h{display:flex;justify-content:space-between;align-items:baseline;margin-top:18px}
+.rec-h button{all:unset;cursor:pointer;color:var(--accent-ink);font:700 11px 'Inter',sans-serif;margin-top:18px}
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.rec button{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border-top:1px solid var(--line);font-size:13px;color:var(--fg)}
+.rec button:first-child{border-top:0}
+.rec button .k{margin-left:auto;font-size:10px;color:var(--muted);font-weight:600}
+.rec-empty{font-size:12px;color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:12px}
+.tipcard{margin-top:16px;background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:11px 13px;font-size:11.5px;line-height:1.5;color:var(--fg)}
+.tipcard b.h{display:block;font:700 10px 'Inter',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:5px}
+.tipcard ul{margin:0;padding-left:16px}.tipcard li{margin-bottom:3px}
+.lnk{all:unset;cursor:pointer;display:inline-block;margin-top:12px;color:var(--accent-ink);font:700 12px 'Inter',sans-serif}
+.nores{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.nores h4{font:700 14px 'Lora',Georgia,serif;color:var(--fg);margin:0 0 4px}
+.nores p{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+.guide h2.gh{font-family:'Lora',Georgia,serif;font-size:21px;margin:0 0 2px;letter-spacing:-.3px}
+.guide .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.4}
+.guide details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.guide summary{list-style:none;cursor:pointer;padding:12px 14px;font:700 13px 'Inter',sans-serif;color:var(--fg);display:flex;align-items:center;gap:10px}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary .n{width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font:700 11px 'Inter',sans-serif;display:grid;place-items:center;flex:none}
+:root[data-theme="dark"] .guide summary .n{background:var(--accent)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .guide summary .n{background:var(--accent)} }
+.guide summary::after{content:"+";margin-left:auto;color:var(--accent-ink);font:700 18px 'Inter',sans-serif}
+.guide details[open] summary::after{content:"\2013"}
+.guide .bd{padding:0 14px 13px 46px;font-size:12px;line-height:1.5;color:var(--fg)}
+.guide .bd p{margin:0 0 7px}.guide .bd ul{margin:0 0 4px;padding-left:16px}.guide .bd li{margin-bottom:3px}
+.guide .warn{background:rgba(201,162,39,.14);border:1px solid rgba(201,162,39,.4);border-radius:12px;padding:11px 13px;font-size:11px;line-height:1.45;color:var(--fg);margin:4px 0 12px}
+
+/* ===== Install prompt (added Oct 2026) ===== */
+.sf-install{position:absolute;left:10px;right:10px;bottom:116px;z-index:55;background:#fff;color:#0f2a52;border-radius:16px;box-shadow:0 10px 34px rgba(8,22,48,.38);padding:12px 12px 14px;display:flex;gap:11px;align-items:flex-start;animation:sfInUp .45s cubic-bezier(.2,.9,.3,1.1) both;font-family:'Inter',system-ui,sans-serif}
+.sf-install[hidden]{display:none!important}
+@keyframes sfInUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.sf-install .ic{width:46px;height:46px;border-radius:11px;flex:none}
+.sf-install .tx{flex:1;min-width:0}
+.sf-install .tx b{display:block;font:700 14.5px/1.2 'Lora',Georgia,serif;margin-bottom:3px}
+.sf-install .tx span{display:block;font-size:12.5px;line-height:1.4;color:#33415c}
+.sf-install .shr{display:inline-block;vertical-align:-4px;width:17px;height:17px;margin:0 1px}
+.sf-install .go{all:unset;cursor:pointer;margin-top:8px;background:#1b6a4f;color:#fff;font:700 12.5px 'Inter',sans-serif;padding:7px 14px;border-radius:999px;display:inline-block}
+.sf-install .x{all:unset;cursor:pointer;position:absolute;top:5px;right:8px;font-size:20px;line-height:1;color:#7a879f;padding:4px}
+.sf-install .pt{position:absolute;left:50%;bottom:-9px;width:18px;height:18px;background:#fff;transform:translateX(-50%) rotate(45deg);border-radius:0 0 4px 0}
+@media (prefers-color-scheme:dark){.sf-install{background:#17233a;color:#eaf0fa}.sf-install .tx span{color:#b9c6da}.sf-install .pt{background:#17233a}}
+
+.welcome .w-guide{all:unset;cursor:pointer;box-sizing:border-box;width:100%;margin-top:9px;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--cv-gold-bright);color:#0f2a52;font:700 12.5px 'Inter',-apple-system,sans-serif;letter-spacing:.06em;text-transform:uppercase;
+  padding:11px 14px;border-radius:14px;box-shadow:0 4px 12px rgba(154,111,18,.28)}
+.welcome .w-guide:hover{filter:brightness(.95)}
+.welcome .w-guide:focus-visible{outline:3px solid var(--cv-navy);outline-offset:2px}
+.welcome .w-guide svg{width:17px;height:17px;flex:none}
+@media (max-height:640px){.welcome .w-guide{padding:8px 14px;margin-top:7px}}
+
+/* In-app ingredient screen (Ask AI) */
+.ing-back{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--surface);color:var(--fg);border:1.5px solid var(--accent);border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;margin:0 0 14px}
+.ing-back:hover{background:var(--bg)}
+.ing-back .ing-back-sub{display:block;font-weight:500;font-size:11.5px;color:var(--muted);margin-top:1px}
+.ing-back .ing-back-arrow{font-size:20px;line-height:1;color:var(--accent-ink)}
+.ing-back.bottom{margin:14px 0 4px}
+.ing-hero{margin-bottom:14px}
+.ing-hero .ing-kicker{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.ing-hero h2{font-family:'Lora',Georgia,serif;font-size:21px;margin:3px 0 6px;line-height:1.25}
+.ing-hero .ing-amt{display:inline-block;font-size:13px;font-weight:700;color:var(--accent-ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+.ing-note{font-size:13.5px;line-height:1.55;color:var(--fg)}
+.ing-note p{margin:0 0 9px}
+.ing-note p:last-child{margin-bottom:0}
+.ing-other{font-size:12.5px;color:var(--muted);line-height:1.5}
+
+/* ===== Barcode scanner (added Oct 2026, barcode-dev branch; nothing above was removed) ===== */
+.tabs{align-items:flex-end;position:relative;z-index:3}
+.tabs .scan-tab{flex:1.3;padding:0 0 6px}
+.tabs .scan-tab .scan-fab{width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;margin-top:-24px;border:3px solid var(--surface);box-shadow:0 6px 16px rgba(15,42,82,.30)}
+.tabs .scan-tab .scan-fab svg{width:27px;height:27px}
+.tabs .scan-tab .lb{color:var(--accent-ink);font-weight:800;margin-top:1px}
+.tabs .scan-tab.on::after{display:none}
+.tabs .scan-tab.on .scan-fab{box-shadow:0 0 0 3px var(--gold),0 6px 16px rgba(15,42,82,.30)}
+.scan-cta{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:13px;width:100%;margin:14px 0 4px;padding:13px 16px;border-radius:16px;background:var(--accent);color:#fff;font:800 17px 'Inter',-apple-system,sans-serif;box-shadow:0 6px 16px rgba(15,42,82,.22);border:2px solid rgba(255,255,255,.18)}
+.scan-cta svg{width:34px;height:34px;flex:none}
+.scan-cta small{display:block;font:500 12px 'Inter',-apple-system,sans-serif;opacity:.92;margin-top:2px}
+.scan-cta:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.welcome .w-scan{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:9px;background:var(--cv-navy);color:#fff;font:800 13.5px 'Inter',-apple-system,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:13px;border-radius:14px;box-shadow:0 5px 14px rgba(15,42,82,.28)}
+.welcome .w-scan svg{width:20px;height:20px}
+.welcome .w-scan:focus-visible{outline:3px solid var(--cv-gold-bright);outline-offset:2px}
+.sc-view{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:4/3;margin:0 0 12px}
+.sc-view video{width:100%;height:100%;object-fit:cover;display:block}
+.sc-frame{position:absolute;left:9%;right:9%;top:27%;bottom:27%;border:3px solid #fff;border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.38);pointer-events:none}
+.sc-frame::after{content:"";position:absolute;left:6px;right:6px;top:50%;height:2px;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:scLine 1.6s ease-in-out infinite alternate}
+@keyframes scLine{from{top:12%}to{top:88%}}
+@media (prefers-reduced-motion:reduce){.sc-frame::after{animation:none}}
+.sc-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#fff;font:600 12.5px 'Inter',-apple-system,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.7);padding:0 10px}
+.sc-x{all:unset;cursor:pointer;position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font:700 12px 'Inter',-apple-system,sans-serif;padding:6px 11px;border-radius:999px}
+.sc-torch{all:unset;cursor:pointer;position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font:700 12px 'Inter',-apple-system,sans-serif;padding:6px 11px;border-radius:999px}
+.sc-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+.sc-card.ok{border-color:var(--accent);border-width:2px}
+.sc-kicker{font:800 11px 'Inter',-apple-system,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--accent-ink)}
+.sc-card.warn .sc-kicker{color:var(--danger)}
+.sc-name{font-family:'Lora',Georgia,serif;font-size:19px;font-weight:700;line-height:1.25;margin:4px 0 4px;color:var(--fg)}
+.sc-meta{font-size:12px;color:var(--muted);margin:0 0 8px}
+.sc-note,.sc-warn,.sc-card p{font-size:13px;line-height:1.5;margin:6px 0;color:var(--fg)}
+.sc-warn{color:var(--danger);font-weight:600}
+.sc-btn{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;margin:10px 0 0;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font:800 15px 'Inter',-apple-system,sans-serif}
+.sc-btn.alt{background:transparent;color:var(--accent-ink);border:2px solid var(--accent);padding:12px}
+.sc-btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.sc-sub{font:700 12px 'Inter',-apple-system,sans-serif;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.sc-alt{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 7px;color:var(--fg)}
+.sc-alt b{display:block;font-size:13.5px}
+.sc-alt span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.sc-tools{display:flex;gap:8px;margin:0 0 12px}
+.sc-photo{flex:1;cursor:pointer;text-align:center;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:11px 8px;font:700 12.5px 'Inter',-apple-system,sans-serif}
+.sc-type{display:flex;gap:8px;margin:0 0 14px}
+.sc-type input{flex:1;min-width:0;padding:11px 12px;border:1.5px solid var(--line);border-radius:12px;font:15px 'Inter',-apple-system,sans-serif;background:var(--surface);color:var(--fg)}
+.sc-type button{all:unset;cursor:pointer;padding:0 16px;border-radius:12px;background:var(--accent);color:#fff;font:700 13px 'Inter',-apple-system,sans-serif;display:flex;align-items:center}
+.sc-clear{all:unset;cursor:pointer;font-size:12px;color:var(--accent-ink);font-weight:700;margin-top:4px;display:inline-block}
+.vc-mic{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--accent-ink)}
+.vc-mic svg{width:19px;height:19px}
+.vc-mic:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
+.vc-mic.off{opacity:.45}
+.vc-mic.on{background:var(--danger);color:#fff;animation:vcPulse 1.2s ease-in-out infinite}
+@keyframes vcPulse{0%,100%{box-shadow:0 0 0 0 rgba(180,40,40,.45)}50%{box-shadow:0 0 0 7px rgba(180,40,40,0)}}
+.vc-msg{display:inline-block;font:600 12px 'Inter',-apple-system,sans-serif;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 10px;margin:2px 0 8px}
+@media (prefers-reduced-motion:reduce){.vc-mic.on{animation:none}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="sfLogo" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#0f2a52"/><path d="M48 76C28 74 20 56 22 36c18 0 29 10 26 40z" fill="#d1a02e"/><path d="M52 76c-3-30 8-40 26-40 2 20-6 38-26 40z" fill="#3f9a3d"/><path d="M47 74C44 58 37 48 28 41M53 74c1-16 8-27 19-34" stroke="#0f2a52" stroke-opacity=".35" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
+</defs></svg>
+<div class="wrap">
+
+  <div class="stage">
+    <div class="device">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="icons">●●●&nbsp;&nbsp;📶&nbsp;&nbsp;🔋</span>
+        </div>
+
+        <div class="sf-splash" id="sfSplash" aria-hidden="true">
+          <svg viewBox="0 0 100 100"><use href="#sfLogo"/></svg>
+          <div class="sw">Supple<b>Facts</b></div>
+          <div class="st">Check the evidence</div>
+        </div>
+
+        <div class="welcome" id="welcome">
+          <div class="cv-top">
+            <div class="cv-brand">
+              <svg viewBox="0 0 100 100" role="img" aria-label="SuppleFacts logo"><use href="#sfLogo"/></svg>
+              <div class="cv-name">Supple<b>Facts</b></div>
+            </div>
+            <h1>Before You Take It,<br><span>Check the Evidence.</span></h1>
+            <p class="cv-sub">See what’s really in your supplement — and what the science actually shows.</p>
+          </div>
+
+          <div class="cv-hero" role="img" aria-label="A supplement bottle seen through a magnifying glass showing its Supplement Facts label"></div>
+
+          <div class="cv-feats">
+            <div class="cv-feat"><div class="cv-ico" style="background:#dff1e6"><svg viewBox="0 0 24 24" fill="none" stroke="#1b6a4f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v6"/><path d="M6 3v18h6"/><path d="M9 9h5M9 13h3"/><path d="M14 21c0-3 2-5 6-5 0 3-2 5-6 5z"/></svg></div><h3>What’s<br>in it?</h3><p>Real product labels from the NIH database</p></div>
+            <div class="cv-feat"><div class="cv-ico" style="background:#dcecf8"><svg viewBox="0 0 24 24" fill="none" stroke="#1d5f9a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16.5" y="3" width="4" height="17" rx="1"/></svg></div><h3>Does it<br>work?</h3><p>Clinical trials and systematic reviews</p></div>
+            <div class="cv-feat"><div class="cv-ico" style="background:#fbefc9"><svg viewBox="0 0 24 24" fill="none" stroke="#9a6f12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="12" height="7" rx="3.5" transform="rotate(-40 9 9.5)"/><circle cx="16.5" cy="16.5" r="4"/><path d="M14.7 16.5h3.6"/></svg></div><h3>Is the dose<br>right?</h3><p>Compare to studied doses</p></div>
+            <div class="cv-feat"><div class="cv-ico" style="background:#fbe0e0"><svg viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8.2-7 10-4-1.8-7-5.6-7-10V6l7-3z"/><path d="M8.8 12l2.4 2.4L15.5 10"/></svg></div><h3>Is it<br>safe?</h3><p>Safety risks, drug interactions and warnings</p></div>
+          </div>
+
+          <div class="cv-cta">
+            <button class="w-btn" id="exploreBtn" type="button">Check a supplement
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <button class="w-scan" id="welcomeScan" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6" stroke-width="1.8"/></svg>Scan a barcode</button>
+            <a class="w-guide" id="guideBtn" href="/supplefacts-guide.pdf" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>
+              User’s Guide
+            </a>
+          </div>
+          <p class="w-note">Sourced from <b>NIH</b> databases and focused AI searches.<br>A research tool, not medical advice.</p>
+        </div>
+
+        <div class="appbar">
+          <button class="back" id="backBtn" aria-label="Back" hidden>&#8249;</button>
+          <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><use href="#sfLogo"/></svg>
+          <div class="title" id="appTitle">SuppleFacts</div>
+        </div>
+        <div class="content" id="content"></div>
+        <nav class="tabs" id="tabs" aria-label="Main">
+          <button type="button" data-tab="home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9z" fill="currentColor"/></svg>Home</button>
+          <button type="button" data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Search</button>
+          <button type="button" class="scan-tab" data-scan="1" aria-label="Scan a barcode"><span class="scan-fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6" stroke-width="1.6"/></svg></span><span class="lb">Scan</span></button>
+          <button type="button" data-tab="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>Guide</button>
+        </nav>
+        <div class="sf-install" id="sfInstall" role="dialog" aria-label="Install SuppleFacts" hidden>
+          <svg class="ic" viewBox="0 0 100 100" aria-hidden="true"><use href="#sfLogo"/></svg>
+          <div class="tx"><b>Put SuppleFacts on your Home Screen</b>
+            <span id="sfInstallMsg"></span>
+            <button type="button" class="go" id="sfInstallGo" hidden>Install</button></div>
+          <button type="button" class="x" id="sfInstallX" aria-label="Dismiss">×</button>
+          <div class="pt" id="sfInstallPt" hidden></div>
+        </div>
+        <div class="disclaimer-bar">
+          <span class="lock">ⓘ</span>
+          <span>Informational only, not medical advice. Label and monograph data from NIH ODS; AI summaries are Claude-generated from that data.</span>
+        </div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="f">
+      <div class="n"><span class="ico">🔎</span>Products</div>
+      <p>Live label search against the NIH Dietary Supplement Label Database — ingredients, doses, and claims exactly as printed, for 200,000+ real products.</p>
+    </div>
+    <div class="f">
+      <div class="n"><span class="ico">📖</span>Monographs</div>
+      <p>Plain-language evidence summaries pulled from NIH ODS and NCCIH fact sheets, linked directly off any ingredient a product search turns up.</p>
+    </div>
+    <div class="f">
+      <div class="n"><span class="ico">📱</span>On your phone</div>
+      <p>Installs straight from Safari to the home screen — no App Store needed to start, with a full App Store release as a later step once it's proven useful.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var API = 'https://api.ods.od.nih.gov/dsld/v9';
+  var SITE = 'https://supplements.brokenpromiseshealthcare.org';
+  var SUMMARY_ENDPOINT = '/.netlify/functions/ai-summary';
+
+  /* ---- Ingredient monographs (curated; unchanged from the original design) ---- */
+  var MONOGRAPHS = [
+    { id:'magnesium', name:'Magnesium', kind:'Mineral &middot; ODS Fact Sheet',
+      consumer:{ what:'An essential mineral involved in more than 300 processes in the body, including muscle and nerve function, blood sugar control, and building bone.',
+        evidence:'Good evidence it helps when levels are genuinely low. For sleep or muscle cramps in people with normal levels, trial results are mixed.',
+        safety:'High supplement doses (not food) commonly cause diarrhea and cramping, and can reduce absorption of some antibiotics.',
+        bottom:'Most people get enough from food. Supplementing is clearest when a deficiency is confirmed.' },
+      clinical:{ what:'Cofactor in 300+ enzymatic reactions (ATP metabolism, neuromuscular transmission). RDA ≈ 400–420 mg/day (men), 310–320 mg/day (women).',
+        evidence:'RCTs support repletion in documented hypomagnesemia. Evidence for primary insomnia and nocturnal leg cramps is mixed, with modest effect sizes at 300–500 mg elemental Mg.',
+        safety:'Doses above the 350 mg/day UL commonly cause osmotic diarrhea; can reduce absorption of tetracyclines/fluoroquinolones; caution with loop/thiazide diuretics in renal impairment.',
+        bottom:'Strongest evidence is for correcting confirmed deficiency; benefit in replete individuals is inconsistent across trials.' } },
+    { id:'ginkgo', name:'Ginkgo biloba', kind:'Botanical &middot; ODS Fact Sheet',
+      consumer:{ what:'An extract from the ginkgo tree leaf, one of the best-selling herbal supplements, marketed for memory and circulation.',
+        evidence:'Large, well-run trials have not shown a consistent benefit for memory or preventing cognitive decline in healthy older adults.',
+        safety:'Can increase bleeding risk — use caution with blood thinners, and stop before surgery or dental procedures.',
+        bottom:'Popular, but the clinical evidence behind its main marketed claim is weak.' },
+      clinical:{ what:'Standardized leaf extract (commonly EGb 761: 24% flavone glycosides / 6% terpene lactones).',
+        evidence:'Large RCTs (e.g. the GEM study, n>3,000) found no significant reduction in incident dementia or cognitive decline vs. placebo.',
+        safety:'Antiplatelet effect; case reports of bleeding with anticoagulants, antiplatelets, and NSAIDs; standard precaution to discontinue before surgery.',
+        bottom:'Well studied — large trials do not support the primary marketed cognitive claim.' } },
+    { id:'vitamind', name:'Vitamin D', kind:'Vitamin &middot; ODS Fact Sheet',
+      consumer:{ what:'A fat-soluble vitamin the body makes from sunlight, which supports calcium absorption and bone health.',
+        evidence:'Strong evidence for bone health and preventing rickets. Evidence for broader claims like immunity or mood is mixed.',
+        safety:'Very high doses over time can raise blood calcium to unsafe levels.',
+        bottom:'Widely recommended, especially with low sun exposure — but more is not automatically better.' },
+      clinical:{ what:'Cholecalciferol (D3) or ergocalciferol (D2). RDA 600–800 IU/day; optimal serum 25(OH)D target still debated.',
+        evidence:'Strong RCT evidence for bone mineralization and fracture risk reduction when deficient. Large trials (e.g. VITAL) found no significant reduction in cancer or CV incidence in replete adults.',
+        safety:'Hypercalcemia risk with sustained intake >4,000 IU/day; potentiates thiazide effect on serum calcium; monitor with digoxin.',
+        bottom:'Well supported for bone health and documented deficiency; weaker evidence for broader disease-prevention claims than marketing suggests.' } },
+    { id:'echinacea', name:'Echinacea', kind:'Botanical &middot; ODS Fact Sheet',
+      consumer:{ what:'A flowering plant native to North America, traditionally used and widely marketed to prevent or shorten colds.',
+        evidence:'Clinical trial results are mixed and inconsistent. Any benefit for cold duration appears modest at best.',
+        safety:'Generally well tolerated short-term; allergic reactions possible, especially with ragweed-family allergies.',
+        bottom:'Reasonable to try for some people — just don’t expect a dramatic effect.' },
+      clinical:{ what:'Genus of flowering plants; E. purpurea most studied. Preparations vary widely (root vs. aerial parts, extraction method), complicating cross-trial comparison.',
+        evidence:'Meta-analyses show inconsistent, generally modest effects on cold incidence/duration; heterogeneity across preparations limits firm conclusions.',
+        safety:'Well tolerated short-term (<10 days); caution in Asteraceae/ragweed-family allergy; theoretical interaction with immunosuppressants.',
+        bottom:'Plausible modest benefit for some, undermined by inconsistent preparations across the evidence base.' } }
+  ];
+
+  // How a live label's ingredient name maps onto a curated monograph above
+  var MONO_MATCH = {
+    magnesium: /^magnesium(?!\s+stearate)/i,
+    ginkgo:    /ginkgo/i,
+    vitamind:  /vitamin\s*d|cholecalciferol|ergocalciferol/i,
+    echinacea: /echinacea/i
+  };
+  // Label rows that are nutrition-facts macros rather than supplement ingredients
+  var MACRO = /^(calories|calories from fat|total (carbohydrates?|sugars?|fat)|added sugars?)$/i;
+
+  /* ---- State ---- */
+  var LABELS = {};      // id -> normalized product (full label, loaded on demand)
+  var SUMMARIES = {};   // id -> {name, brand, form} from search results
+  var RESULT_CACHE = {};// query -> [summary]
+  var content = document.getElementById('content');
+  var backBtn = document.getElementById('backBtn');
+  var appTitle = document.getElementById('appTitle');
+  var history = [ { screen:'home', param:null } ];
+  var monoLevel = 'consumer';
+  var aiCache = {};
+  var sampleCap = null;
+  var sampleInit = false;
+  var navToken = 0;
+
+  function relatedProducts(monoId){
+    var out = [];
+    for (var id in LABELS){
+      var p = LABELS[id];
+      if (p.ingredients.some(function(i){ return i.mono === monoId; })) out.push(p);
+    }
+    return out;
+  }
+  function monoById(id){ for (var i=0;i<MONOGRAPHS.length;i++){ if(MONOGRAPHS[i].id===id) return MONOGRAPHS[i]; } return null; }
+  function prodById(id){ return LABELS[id] || null; }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* ---- Turn a raw NIH DSLD label into the shape the UI renders ---- */
+  function qtyText(q){
+    if (!q || q.unit === 'NP' || q.quantity == null) return '';
+    if (q.quantity === 0 && !q.unit) return '';
+    return ((q.operator && q.operator !== '=') ? q.operator + ' ' : '') + q.quantity + (q.unit ? ' ' + q.unit : '');
+  }
+  function dvText(q){
+    var g = q && q.dailyValueTargetGroup && q.dailyValueTargetGroup[0];
+    if (!g) return '';
+    if (g.percent != null) return g.percent + '% DV';
+    if (g.footnote) return '†';
+    return '';
+  }
+  function monoFor(names){
+    for (var id in MONO_MATCH){
+      for (var i=0;i<names.length;i++){ if (names[i] && MONO_MATCH[id].test(names[i])) return id; }
+    }
+    return null;
+  }
+  function flattenRows(rows, depth, out){
+    (rows || []).forEach(function(r){
+      var q = (r.quantity && r.quantity[0]) || null;
+      var forms = (r.forms || []).map(function(f){ return f.name; }).filter(Boolean);
+      var macro = MACRO.test((r.name || '').trim());
+      var mono = macro ? null : monoFor([r.name].concat(forms));
+      out.push({
+        name: r.name || 'Unnamed ingredient',
+        detail: forms.length ? 'as ' + forms.join(', ') : ((r.description || '').trim()),
+        amount: qtyText(q), dv: dvText(q),
+        mono: mono, aiLink: !mono && !macro && depth === 0,
+        depth: depth, macro: macro
+      });
+      flattenRows(r.nestedRows, depth + 1, out);
+    });
+    return out;
+  }
+  function normalizeLabel(l){
+    var ss = (l.servingSizes || [])[0], serving = '';
+    if (ss){
+      serving = ((ss.minQuantity === ss.maxQuantity || !ss.maxQuantity) ? ss.minQuantity : ss.minQuantity + '–' + ss.maxQuantity) + ' ' + (ss.unit || '');
+      serving = serving.trim();
+    }
+    var form = [ (l.physicalState && l.physicalState.langualCodeDescription) || '',
+                 (l.netContents && l.netContents[0] && l.netContents[0].display) || '' ].filter(Boolean).join(' · ');
+    var oi = l.otheringredients || l.otherIngredients || {};
+    var other = typeof oi === 'string' ? oi : (oi.text || (oi.ingredients || []).map(function(n){ return n.name; }).join(', '));
+    var seen = {}, claims = [];
+    (l.statements || []).forEach(function(s){
+      if (/^(Formulation re|Formula re|Seals\/Symbols|FDA Statement of Identity)/i.test(s.type || '')){
+        var t = (s.notes || '').replace(/\s+/g, ' ').trim();
+        if (t && t.length <= 110 && !seen[t.toLowerCase()]){ seen[t.toLowerCase()] = 1; claims.push(t); }
+      }
+    });
+    if (!claims.length){
+      (l.claims || []).forEach(function(c){
+        var t = (c.langualCodeDescription || '').trim();
+        if (t && !/^all other$/i.test(t) && !seen[t.toLowerCase()]){ seen[t.toLowerCase()] = 1; claims.push(t); }
+      });
+    }
+    return {
+      id: String(l.id), brand: l.brandName || '', name: l.fullName || 'Product',
+      form: form, serving: serving || '—', upc: l.upcSku || '',
+      ingredients: flattenRows(l.ingredientRows, 0, []),
+      other: other || '', claims: claims.slice(0, 8),
+      off: l.offMarket, entry: l.entryDate || '',
+      offDate: ((l.events || []).filter(function(e){ return /off market/i.test(e.type || ''); })[0] || {}).date || ''
+    };
+  }
+  function activeIngredients(p){ return p.ingredients.filter(function(i){ return !i.macro; }); }
+
+  /* ---- AI summary (original behaviour in Claude; server function on the live site) ---- */
+  async function ensureSample(){
+    if (sampleInit) return sampleCap;
+    sampleInit = true;
+    try {
+      if (window.claude && window.claude.use){ sampleCap = await window.claude.use('sample'); }
+    } catch (e){ sampleCap = null; }
+    return sampleCap;
+  }
+  ensureSample();
+
+  function ingredientNotes(ing){
+    var m = monoById(ing.mono);
+    return m ? { what:m.consumer.what, evidence:m.consumer.evidence, safety:m.consumer.safety } : null;
+  }
+
+  function buildIngredientPrompt(product){
+    var act = activeIngredients(product).slice(0, 40);
+    var parts = [];
+    parts.push('You write short, neutral, evidence-based ingredient summaries for an independent, pharmacist-run dietary-supplement education site. Plain language, no marketing tone, no claims beyond what the source material below actually supports.');
+    parts.push('Product label: ' + product.brand + ' — ' + product.name + ' (' + product.form + ', serving size ' + product.serving + ').');
+    parts.push('Use ONLY the NIH-sourced material given for each ingredient below. Do not add outside claims or invented statistics.');
+    act.forEach(function(ing){
+      var n = ingredientNotes(ing);
+      parts.push('\n' + ing.name + (ing.amount ? ' (' + ing.amount + ' per serving)' : '') + ':');
+      if (n){
+        parts.push('What it is: ' + n.what);
+        parts.push('What the evidence shows: ' + n.evidence);
+        parts.push('Safety & interactions: ' + n.safety);
+      } else {
+        parts.push('(No NIH monograph on file for this ingredient — note that plainly rather than guessing.)');
+      }
+    });
+    parts.push('\nWrite one consumer-friendly summary, ' + (act.length > 3 ? '180–260' : '120–180') + ' words, covering what this product’s active ingredient(s) are for and what the evidence actually supports. Stay neutral; do not overstate benefit. End with one short sentence noting this is general information drawn from NIH source material, not medical advice.');
+    return parts.join('\n');
+  }
+
+  function sfHash(str){ var h = 5381; for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + str.length.toString(36); }
+
+  async function requestSummary(product){
+    // 1) Inside Claude (artifact preview): use the built-in capability, exactly as before
+    var cap = await ensureSample();
+    if (cap){
+      var res = await cap(buildIngredientPrompt(product), { modelTier:'quick', onText:function(ev){ product._onText && product._onText(ev.text); } });
+      return res.text;
+    }
+    // 2) On the live site: ask the Netlify function (holds the API key server-side)
+    var body = {
+      brand: product.brand, name: product.name, form: product.form, serving: product.serving,
+      ingredients: activeIngredients(product).slice(0, 40).map(function(ing){
+        return { name: ing.name, amount: ing.amount, notes: ingredientNotes(ing) };
+      })
+    };
+    // Remember summaries this visitor has already seen (30 days) so reopening a product is instant
+    var payload = JSON.stringify(body), lsKey = 'sf_sum3_' + sfHash(payload);
+    try {
+      var saved = JSON.parse(localStorage.getItem(lsKey) || 'null');
+      if (saved && saved.text && Date.now() - saved.t < 30*24*60*60*1000 && !/^\s*#/.test(saved.text)) return saved.text;
+    } catch (e){}
+    var r = await fetch(SUMMARY_ENDPOINT, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: payload });
+    var data = {};
+    try { data = await r.json(); } catch (e){}
+    if (!r.ok || !data.text){
+      var err = new Error(data.error || ('HTTP ' + r.status));
+      err.code = data.error || ('http_' + r.status);
+      throw err;
+    }
+    try { localStorage.setItem(lsKey, JSON.stringify({ text: data.text, t: Date.now() })); } catch (e){}
+    return data.text;
+  }
+
+  // re-draw the label screen after a summary arrives WITHOUT jumping to the top: keep the reader where they were and bring the summary into view
+  function showSummaryInPlace(){
+    var keep = content.scrollTop;
+    render();
+    content.scrollTop = keep;
+    var pn = document.getElementById('aiPanel');
+    if (pn){
+      var top = pn.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop;
+      content.scrollTop = Math.max(0, top - 10);
+    }
+  }
+
+  async function generateAISummary(productId, force){
+    var product = prodById(productId);
+    if (!product) return;
+    if (!force && aiCache[productId]) { showSummaryInPlace(); return; }
+
+    var panel = document.getElementById('aiPanel');
+    if (!panel) return;
+    panel.innerHTML = ''
+      + '<div class="ai-panel-head"><span class="spark">✨</span><h3 style="margin:0;">AI Ingredient Summary</h3></div>'
+      + '<div class="ai-state"><span class="ai-spinner"></span><span id="aiStateText">Asking Claude…</span></div>'
+      + '<div class="ai-live" id="aiLive"></div>';
+
+    var stillHere = function(){
+      var cur = history[history.length - 1];
+      return cur.screen === 'product' && cur.param === productId && document.getElementById('aiPanel');
+    };
+    product._onText = function(t){
+      if (!stillHere()) return;
+      var live = document.getElementById('aiLive'), st = document.getElementById('aiStateText');
+      if (st) st.textContent = 'Writing…';
+      if (live) live.textContent = t;
+    };
+
+    try {
+      var text = await requestSummary(product);
+      aiCache[productId] = text;
+      if (stillHere()) showSummaryInPlace();
+    } catch (err){
+      if (!stillHere()) return;
+      var head = '<div class="ai-panel-head"><span class="spark">✨</span><h3 style="margin:0;">AI Ingredient Summary</h3></div>';
+      var notConfigured = err && (err.code === 'not_configured' || err.code === 'http_404');
+      var msg = 'Couldn’t generate a summary just now. Please try again.';
+      if (err && err.code === 'rate_limited') msg = 'Claude is busy right now — try again in a moment.';
+      if (notConfigured) msg = 'The live AI summary isn’t switched on for this site yet. You can still get the complete AI analysis of this label on the website.';
+      document.getElementById('aiPanel').innerHTML = head
+        + '<div class="ai-error-box">' + esc(msg) + '</div>'
+        + (notConfigured ? '' : '<button class="ai-btn" data-ai-generate="' + esc(productId) + '">Try again</button> ')
+        + '<button class="ai-btn" style="background:var(--gold);color:#1B2A41" data-ai-fallback="' + esc(productId) + '">🔍 Full analysis on the website</button>';
+    }
+  }
+
+  /* ---- Hand-off to the website (prompt format unchanged from the original) ---- */
+  function buildInvestigateUrl(product){
+    var base = SITE + '/product-lookup?prompt=';
+    var ings = activeIngredients(product), keepOther = true, keepClaims = true;
+    function make(list){
+      var prompt = 'Analyze this dietary supplement product and its ingredients:\n\n';
+      prompt += '=== PRODUCT LABEL ===\n';
+      prompt += 'Brand: ' + product.brand + '\n';
+      prompt += 'Product: ' + product.name + '\n';
+      prompt += 'Form: ' + product.form + '\n';
+      prompt += 'Serving Size: ' + product.serving + '\n';
+      if (product.upc) prompt += 'UPC: ' + product.upc + '\n';
+      prompt += '\nSUPPLEMENT FACTS:\n';
+      list.forEach(function(ing){
+        prompt += '- ' + ing.name;
+        if (ing.detail) prompt += ' (' + ing.detail + ')';
+        if (ing.amount) prompt += ': ' + ing.amount;
+        if (ing.dv) prompt += ', ' + ing.dv;
+        prompt += '\n';
+      });
+      if (keepOther && product.other) prompt += '\nOther Ingredients: ' + product.other + '\n';
+      if (keepClaims && product.claims.length) prompt += '\nLabel Claims: ' + product.claims.join(' | ') + '\n';
+      prompt += '\n=== ANALYSIS REQUESTED ===\n';
+      prompt += 'Please provide an evidence-based analysis of this product\'s ingredients. For each ingredient, explain:\n';
+      prompt += '1. What it is\n';
+      prompt += '2. What the scientific evidence shows (cite specific studies/evidence where available)\n';
+      prompt += '3. Safety concerns and potential interactions\n';
+      prompt += '4. Whether the claimed benefits are supported by evidence\n\n';
+      prompt += 'Be neutral and fact-based. Note when evidence is weak, missing, or contradictory. Highlight any concerns with ingredient interactions or excessive doses.';
+      return base + encodeURIComponent(prompt);
+    }
+    var url = make(ings);
+    // Very long labels: shrink so the link stays within browser/server URL limits
+    var LIMIT = 7500;
+    if (url.length > LIMIT){ keepOther = false; url = make(ings); }
+    if (url.length > LIMIT){ keepClaims = false; url = make(ings); }
+    while (url.length > LIMIT && ings.length > 1){ ings = ings.slice(0, ings.length - 1); url = make(ings); }
+    return url;
+  }
+
+
+  /* ---- In-app ingredient screen (reached from "Ask AI ›" on a label row) ---- */
+  function findIngredient(product, name){
+    var hit = null;
+    product.ingredients.forEach(function(i){ if (!hit && i.name === name) hit = i; });
+    return hit;
+  }
+  function splitIngParam(param){
+    var k = String(param || '').indexOf('|');
+    return k < 0 ? { id: '', name: String(param || '') } : { id: param.slice(0, k), name: param.slice(k + 1) };
+  }
+  function buildIngredientInvestigateUrl(product, ing){
+    var others = activeIngredients(product).filter(function(i){ return i !== ing; });
+    var prompt = 'Analyze this dietary supplement ingredient:\n\n';
+    prompt += '=== INGREDIENT ===\n' + ing.name;
+    if (ing.detail) prompt += ' (' + ing.detail + ')';
+    prompt += '\n';
+    if (ing.amount) prompt += 'Amount per serving: ' + ing.amount + (ing.dv ? ', ' + ing.dv : '') + '\n';
+    prompt += '\n=== WHERE IT APPEARS ===\n';
+    prompt += 'Brand: ' + product.brand + '\n';
+    prompt += 'Product: ' + product.name + '\n';
+    if (product.form) prompt += 'Form: ' + product.form + '\n';
+    prompt += 'Serving Size: ' + product.serving + '\n';
+    if (others.length){
+      var names = others.map(function(i){ return i.name + (i.amount ? ' ' + i.amount : ''); }).join('; ');
+      if (names.length > 900) names = names.slice(0, 900) + '…';
+      prompt += 'Other ingredients in this product: ' + names + '\n';
+    }
+    prompt += '\n=== ANALYSIS REQUESTED ===\n';
+    prompt += 'Please provide an evidence-based analysis of this ingredient at the amount shown. Explain:\n';
+    prompt += '1. What it is\n';
+    prompt += '2. What the scientific evidence shows (cite specific studies/evidence where available)\n';
+    prompt += '3. Safety concerns and potential interactions, including with the other ingredients listed\n';
+    prompt += '4. Whether the claimed benefits are supported by evidence, and whether the amount shown is in a studied range\n\n';
+    prompt += 'Be neutral and fact-based. Note when evidence is weak, missing, or contradictory.';
+    return SITE + '/product-lookup?prompt=' + encodeURIComponent(prompt);
+  }
+  function renderIngredient(param){
+    var q = splitIngParam(param);
+    var p = prodById(q.id);
+    if (!p) return '<div class="empty">Label not found. Use the back arrow to return.</div>';
+    var ing = findIngredient(p, q.name);
+    if (!ing) return '<div class="empty">Ingredient not found on this label.</div>';
+    var label = p.brand ? p.brand + ' — ' + p.name : p.name;
+    var backBtn = function(cls){
+      return '<button class="ing-back ' + cls + '" data-ing-back="1"><span class="ing-back-arrow">‹</span>'
+        + '<span>Back to the original label<span class="ing-back-sub">' + esc(label) + '</span></span></button>';
+    };
+    return ''
+      + backBtn('')
+      + '<div class="ing-hero">'
+      +   '<div class="ing-kicker">Ingredient on this label</div>'
+      +   '<h2>' + esc(ing.name) + '</h2>'
+      +   (ing.detail ? '<div class="ing-other" style="margin-bottom:7px">' + esc(ing.detail) + '</div>' : '')
+      +   ((ing.amount || ing.dv) ? '<span class="ing-amt">' + esc(ing.amount) + (ing.amount && ing.dv ? ' · ' : '') + esc(ing.dv) + '</span>' : '')
+      + '</div>'
+      + '<div class="panel"><h3>What this app has on it</h3><div class="ing-note">'
+      +   '<p>This ingredient falls outside the NIH sources built into SuppleFacts, so there is no in-app guide for it.</p>'
+      +   '<p>That doesn’t mean nothing is known about it — only that this app doesn’t carry the research. Use the button below to search the evidence for this one ingredient.</p>'
+      + '</div></div>'
+      + '<div class="investigate-panel">'
+      +   '<h3>Investigate this ingredient</h3>'
+      +   '<div class="investigate-text">Opens the evidence search with ' + esc(ing.name) + ' at the amount on this label, plus the other ingredients for interaction context. Come back here afterwards to continue with your label.</div>'
+      +   '<button class="investigate-btn" data-investigate-ing="1">🔍 Investigate the Evidence</button>'
+      + '</div>'
+      + backBtn('bottom');
+  }
+
+  /* ---- Navigation ---- */
+  function navigate(screen, param, opts){
+    opts = opts || {};
+    if (screen === 'results' || screen === 'brand') addRecent(param, screen === 'brand' ? 'brand' : 'all');
+    var entry = { screen:screen, param:param };
+    if (opts.replace && history.length){ history[history.length-1] = entry; }
+    else { history.push(entry); }
+    render();
+  }
+  function goBack(){ if (history.length > 1){ history.pop(); render(); var top = history[history.length - 1]; if (top && top.scroll){ content.scrollTop = top.scroll; } } }
+  backBtn.addEventListener('click', goBack);
+
+  function render(){
+    var cur = history[history.length - 1];
+    navToken++;
+    backBtn.hidden = history.length <= 1;
+    content.scrollTop = 0;
+    if (cur.screen !== 'scan') scStopCam();
+    vcStop();
+    if (cur.screen === 'home'){ appTitle.textContent = 'SuppleFacts'; content.innerHTML = renderHome(); }
+    else if (cur.screen === 'results'){ appTitle.textContent = 'Results'; content.innerHTML = renderResults(cur.param); loadProductResults(cur.param); }
+    else if (cur.screen === 'product'){
+      var p = prodById(cur.param);
+      appTitle.textContent = p ? p.name : ((SUMMARIES[cur.param] && SUMMARIES[cur.param].name) || 'Product');
+      if (p){ content.innerHTML = renderProduct(cur.param); }
+      else { content.innerHTML = '<div class="status"><span class="ai-spinner"></span>Loading label from the NIH database…</div>'; loadLabel(cur.param); }
+    }
+    else if (cur.screen === 'monograph'){ var m = monoById(cur.param); appTitle.textContent = m ? m.name : 'Monograph'; monoLevel='consumer'; content.innerHTML = renderMonograph(cur.param); }
+    else if (cur.screen === 'search'){ appTitle.textContent = 'Search'; content.innerHTML = renderSearchTab(); }
+    else if (cur.screen === 'guide'){ appTitle.textContent = 'User\u2019s Guide'; content.innerHTML = renderGuide(); }
+    else if (cur.screen === 'ingredient'){ appTitle.textContent = 'Ingredient'; content.innerHTML = renderIngredient(cur.param); }
+    else if (cur.screen === 'scan'){ appTitle.textContent = 'Scan a product'; content.innerHTML = renderScan(); scPaint(); }
+    else if (cur.screen === 'brand'){ appTitle.textContent = brandLabel(cur.param); content.innerHTML = renderBrand(cur.param); loadBrandProducts(cur.param, false); }
+    markTab();
+    wireContent();
+    wireRails();
+  }
+
+  function searchRow(value){
+    return '<div class="search-row">'
+      + '<div class="search-box"><span>🔎</span><input id="searchInput" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(value || '') + '" placeholder="Search a product or an ingredient…" /></div>'
+      + '<button class="search-go" id="searchGo">Go</button>'
+      + '</div>';
+  }
+
+  function renderHomeClassic(){
+    var brands = ['Nature Made', 'Nature\'s Way', 'NOW Foods', 'Solgar', 'Multi for Her'];
+    return searchRow('')
+      + '<div class="mode-copy">Searches both product labels and ingredient monographs at once.</div>'
+      + '<div class="section-label">Try an ingredient</div>'
+      + '<div class="chip-row">'
+      +   MONOGRAPHS.map(function(m){ return '<button class="chip" data-go="results:' + esc(m.name) + '">' + esc(m.name) + '</button>'; }).join('')
+      + '</div>'
+      + '<div class="section-label">Try a product</div>'
+      + '<div class="chip-row">'
+      +   brands.map(function(b){ return '<button class="chip" data-go="results:' + esc(b) + '">' + esc(b) + '</button>'; }).join('')
+      + '</div>';
+  }
+
+
+  /* ===== Home rails, Search tab, Guide tab (added Oct 2026) ===== */
+  var ING = [
+    ['Ashwagandha','ashwagandha','Ash','herb','ashwagandha'],['B-Complex / B12','vitamin b12','B12','vit','b-complex'],['Biotin','biotin','B7','vit','biotin'],
+    ['Calcium','calcium','Ca','min','calcium'],['Collagen','collagen','Col','oth','collagen'],['CoQ10','coq10','Q10','oth','coq10'],
+    ['Creatine','creatine','Cre','oth','creatine'],['Echinacea','echinacea','Ech','herb','echinacea'],['Elderberry','elderberry','Eld','herb','elderberry'],
+    ['Garlic','garlic','Gar','herb','garlic'],['Glucosamine / Chondroitin','glucosamine','Glu','oth','glucosamine'],['Green Tea','green tea','GT','herb','green-tea'],
+    ['Iron','iron','Fe','min','iron'],['Magnesium','magnesium','Mg','min','magnesium'],['Melatonin','melatonin','Mel','oth','melatonin'],
+    ['Milk Thistle','milk thistle','MT','herb','milk-thistle'],['Multivitamin','multivitamin','MV','vit','multivitamin'],['Omega-3 / Fish Oil','fish oil','Ω3','oth','omega-3'],
+    ['Probiotics','probiotic','CFU','oth','probiotics'],['Protein Powder','protein powder','Pro','oth','protein-powder'],['Saw Palmetto','saw palmetto','SP','herb','saw-palmetto'],
+    ['Turmeric','turmeric','Cur','herb','turmeric'],['Vitamin C','vitamin c','C','vit','vitamin-c'],['Vitamin D','vitamin d','D3','vit','vitamin-d'],['Zinc','zinc','Zn','min','zinc']
+  ];
+  // [name shown, brand name as the NIH records it]
+  var BRANDS = [
+    ['GNC','GNC','gnc'],['Nature Made','Nature Made','nature-made'],['Nature’s Bounty','Nature\'s Bounty','natures-bounty'],['Nature’s Way','Nature\'s Way','natures-way'],
+    ['NOW Foods','NOW','now-foods'],['Puritan’s Pride','Puritan\'s Pride','puritans-pride'],['Solgar','Solgar','solgar'],['Spring Valley','Spring Valley','spring-valley'],
+    ['Swanson','Swanson','swanson'],['The Vitamin Shoppe','The Vitamin Shoppe','vitamin-shoppe']
+  ];
+  function brandLabel(q){ for (var i=0;i<BRANDS.length;i++){ if (BRANDS[i][1] === q) return BRANDS[i][0]; } return q; }
+
+  function renderHome(){
+    var ings = ING.map(function(it){
+      return '<button class="tile" data-go="results:' + esc(it[1]) + '"><div class="pic c-' + it[3] + '"><img src="/supplefacts-icons/ingredients/' + it[4] + '.jpg" alt="" width="252" height="186" loading="lazy" decoding="async"></div><div class="lb">' + esc(it[0]) + '</div></button>';
+    }).join('');
+    var brs = BRANDS.map(function(it){
+      return '<button class="tile brand img" data-go="brand:' + esc(it[1]) + '" aria-label="' + esc(it[0]) + ' — list NIH labels"><img src="/supplefacts-icons/brands/' + it[2] + '.jpg" alt="' + esc(it[0]) + '" width="284" height="340" loading="lazy" decoding="async"></button>';
+    }).join('');
+    return '<div class="home">'
+      + '<div class="hero"><h1>Search Any Supplement<br><span>See the Real Evidence.</span></h1>'
+      +   '<p>Product labels, ingredient research, safety information, and AI summaries — all in one place.</p>'
+      +   '<button class="scan-cta" data-scan="1">' + SCAN_ICON + '<span>Scan a barcode<small>Check a supplement before you buy it</small></span></button>'
+      +   searchRow('').replace('Search a product or an ingredient\u2026', (window.matchMedia && window.matchMedia('(max-width:500px)').matches) ? 'Product, brand or ingredient' : 'Product, brand or ingredient') + '</div>'
+      + '<section class="sec"><div class="sec-h"><div><h2>Quik Search Common Ingredients</h2><small>Tap one to search NIH labels · swipe for more</small></div><button class="seeall" data-grid="ings">See All ›</button></div>'
+      +   '<div class="rail start" data-rail="ings"><button class="arrow l" aria-label="Scroll left" data-arrow="-1">‹</button><button class="arrow r" aria-label="Scroll right" data-arrow="1">›</button><div class="track" id="trk-ings">' + ings + '</div></div>'
+      +   ''
+      + '</section>'
+      + '<section class="sec"><div class="sec-h"><div><h2>Quik Search Major Brands</h2><small>Tap one to list its NIH labels · swipe for more</small></div><button class="seeall" data-grid="brands">See All ›</button></div>'
+      +   '<div class="rail start" data-rail="brands"><button class="arrow l" aria-label="Scroll left" data-arrow="-1">‹</button><button class="arrow r" aria-label="Scroll right" data-arrow="1">›</button><div class="track" id="trk-brands">' + brs + '</div></div></section>'
+      + '<div class="strip2"><span>📄</span><div>Real supplement labels from NIH databases.<br>Evidence summaries from focused AI searches.</div></div>'
+      + '</div>';
+  }
+
+  function wireRails(){
+    Array.prototype.forEach.call(content.querySelectorAll('.rail'), function(rail){
+      var tr = rail.querySelector('.track');
+      function upd(){ var max = tr.scrollWidth - tr.clientWidth; rail.classList.toggle('start', tr.scrollLeft < 4); rail.classList.toggle('end', tr.scrollLeft > max - 4 || tr.classList.contains('grid')); }
+      tr.addEventListener('scroll', upd, { passive:true }); upd();
+      rail._upd = upd;
+    });
+  }
+
+  /* ---- recent searches (kept on this phone only) ---- */
+  var RKEY = 'sf_recent', smode = 'all';
+  function getRecents(){ try { var r = JSON.parse(localStorage.getItem(RKEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e){ return []; } }
+  function addRecent(q, m){
+    q = (q || '').trim(); if (q.length < 2) return;
+    var r = getRecents().filter(function(x){ return !(String(x.q).toLowerCase() === q.toLowerCase() && x.m === m); });
+    r.unshift({ q:q, m:m });
+    try { localStorage.setItem(RKEY, JSON.stringify(r.slice(0, 6))); } catch (e){}
+  }
+  var SMODES = {
+    all:   { ph:'Try: Nature Made Vitamin D3', help:'Searches product labels and ingredient guides together.' },
+    brand: { ph:'Try: Solgar', help:'Lists labels filed under one brand name in the NIH database.' }
+  };
+  function renderSearchTab(){
+    var rec = getRecents();
+    var recHtml = rec.length
+      ? '<div class="rec">' + rec.map(function(r, i){
+          return '<button data-recent="' + i + '"><span>⏱</span><span>' + esc(r.m === 'brand' ? brandLabel(r.q) : r.q) + '</span><span class="k">' + (r.m === 'brand' ? 'Brand' : 'Everything') + '</span></button>';
+        }).join('') + '</div>'
+      : '<div class="rec-empty">Your recent searches will show up here.</div>';
+    return '<div class="srch">'
+      + '<h2 class="sh">Search the NIH label database</h2>'
+      + '<p class="sub">Type a product, a brand, or an ingredient. Results come straight from the NIH.</p>'
+      + '<div class="search-row"><div class="search-box"><span>🔎</span><input id="searchInput" type="search" enterkeyhint="search" autocomplete="off" placeholder="' + esc(SMODES[smode].ph) + '" /></div><button class="search-go" id="searchGo">Go</button></div>'
+      + '<div class="seg"><button data-smode="all" class="' + (smode === 'all' ? 'on' : '') + '">Everything</button><button data-smode="brand" class="' + (smode === 'brand' ? 'on' : '') + '">Brand</button></div>'
+      + '<div class="seg-help">' + esc(SMODES[smode].help) + '</div>'
+      + '<div class="section-label">Try one</div>'
+      + '<div class="chip-row">'
+      +   '<button class="chip" data-try="all|Nature Made Vitamin D3">Nature Made Vitamin D3</button>'
+      +   '<button class="chip" data-try="all|magnesium glycinate">magnesium glycinate</button>'
+      +   '<button class="chip" data-try="brand|Solgar">Solgar</button>'
+      +   '<button class="chip" data-try="all|fish oil">fish oil</button>'
+      + '</div>'
+      + '<div class="section-label">Ingredient guides</div>'
+      + '<div class="chip-row">' + MONOGRAPHS.map(function(m){ return '<button class="chip" data-go="monograph:' + m.id + '">' + esc(m.name) + '</button>'; }).join('') + '</div>'
+      + '<div class="rec-h"><div class="section-label" style="margin-bottom:8px">Recent searches</div>' + (rec.length ? '<button data-recent-clear="1">Clear</button>' : '') + '</div>'
+      + recHtml
+      + '<div class="tipcard"><b class="h">Searching tips</b><ul>'
+      +   '<li>Add the brand to narrow things down: “Nature Made Vitamin D3” beats “vitamin D.”</li>'
+      +   '<li>The NIH uses the wording printed on the bottle, so try dropping words like “Complex” or “Advanced.”</li>'
+      +   '<li>Use Brand to list a maker’s labels.</li></ul></div>'
+      + '<button class="lnk" data-tab-go="guide">How searching works ›</button>'
+      + '</div>';
+  }
+
+  function renderGuide(){
+    function item(n, title, body, open){ return '<details' + (open ? ' open' : '') + '><summary><span class="n">' + n + '</span>' + title + '</summary><div class="bd">' + body + '</div></details>'; }
+    return '<div class="guide">'
+      + '<h2 class="gh">User’s Guide</h2><p class="sub">Everything you need to get the most out of SuppleFacts.</p>'
+      + item(1, 'Searching for a supplement', '<p>Type a product name, brand or ingredient in the search box and tap Go. Or skip typing: tap any ingredient or brand tile on the Home screen to pull up its labels from the NIH database.</p><p>Swipe the rows sideways to see more, or tap See All to view them in a grid.</p>', true)
+      + item(2, 'Reading a supplement label', '<ul><li><b>Supplement Facts:</b> every active ingredient, its amount per serving, and the serving size.</li><li><b>Other ingredients:</b> fillers, binders, colors and flavors.</li><li><b>Proprietary blends:</b> a total weight with no per-ingredient amounts. You cannot tell how much of each ingredient you are getting.</li><li><b>% Daily Value:</b> where none is listed, no official daily target exists.</li></ul>')
+      + item(3, 'The AI Ingredient Summary', '<p>For each label, tap Generate summary to get a plain-language summary of what the main ingredients are, what the research says, and what to watch for.</p><p>It is a starting point written by AI, not a verdict. Check anything important against the studies it points to.</p>')
+      + item(4, 'Going deeper with the research prompt', '<p>Tap Investigate the Evidence to send the full label and a ready-made research prompt to the Product Lookup page. There you choose Claude, ChatGPT or Perplexity to:</p><ul><li>check whether the doses match what studies used</li><li>compare the published evidence for each ingredient</li><li>look for interactions and safety concerns</li></ul>')
+      + item(5, 'Where the information comes from', '<p>Label data comes live from the NIH Office of Dietary Supplements Dietary Supplement Label Database. Ingredient guides are curated from NIH fact sheets and published research. Brand names are the names recorded on each label.</p>')
+      + item(6, 'Put SuppleFacts on your iPhone', '<p><b>iPhone (Safari):</b> open this page, tap the Share button at the bottom of the screen, scroll down and tap <b>Add to Home Screen</b>, then tap <b>Add</b>. The SuppleFacts icon appears on your Home Screen and opens full-screen, like an app.</p><p><b>Android (Chrome):</b> tap the ⋮ menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</p><p>Tip: if the icon doesn’t appear on iPhone, make sure you are in Safari, not inside another app’s browser.</p>')
+      + '<div class="warn"><b>Important:</b> SuppleFacts is for education, not medical advice. Talk with your doctor or pharmacist before starting a supplement, especially if you take prescription medicines, are pregnant, or have a medical condition.</div>'
+      + '<div class="investigate-panel"><h3>Full illustrated guide</h3><div class="investigate-text">Step-by-step instructions for both evidence buttons, plus how to use Claude, ChatGPT and Perplexity on your phone.</div>'
+      +   '<a class="investigate-btn" href="/supplefacts-guide.pdf" target="_blank" rel="noopener">📄 Open the User’s Guide (PDF)</a></div>'
+      + '</div>';
+  }
+
+  /* ---- brand listing (NIH brand-products endpoint) ---- */
+  var BRAND_CACHE = {};
+  function renderBrand(brand){
+    return searchRow('') + '<div class="mode-copy">Labels filed under the brand name “' + esc(brandLabel(brand)) + '” in the NIH database.</div><div id="brandResults"></div>';
+  }
+  function parseHits(data){
+    var out = [];
+    (data.hits || []).forEach(function(h){
+      var src = h._source !== undefined ? h._source : h;
+      if (typeof src === 'string'){ try { src = JSON.parse(src); } catch (e){} }
+      var id = src && (src.id || src.dsldId) || h._id;
+      if (!id) return;
+      var sum = { id:String(id), name:src.fullName || src.name || 'Unknown product', brand:src.brandName || '',
+                  form:(src.physicalState && src.physicalState.langualCodeDescription) || '' };
+      SUMMARIES[sum.id] = sum; out.push(sum);
+    });
+    return out;
+  }
+  function showBrand(box, st, brand){
+    if (!st.list.length){
+      box.innerHTML = '<div class="nores"><h4>No labels found under “' + esc(brandLabel(brand)) + '”</h4><p>The NIH may file this maker under a slightly different brand name. You can also search all labels for the name.</p>'
+        + '<div class="chip-row"><button class="chip" data-go="results:' + esc(brandLabel(brand)) + '">Search all labels for “' + esc(brandLabel(brand)) + '”</button></div></div>';
+      return;
+    }
+    var more = st.offset < st.total;
+    box.innerHTML = '<div class="section-label">Labels (showing ' + st.list.length.toLocaleString('en-US') + ' of ' + st.total.toLocaleString('en-US') + ')</div><div class="card-list">'
+      + st.list.map(function(p){
+          return '<button class="card" data-go="product:' + esc(p.id) + '"><div class="top"><div><div class="name">' + esc(p.name) + '</div>'
+            + '<div class="meta">' + esc(p.brand) + (p.form ? ' · ' + esc(p.form) : '') + '</div></div><div class="chev">›</div></div><div class="kind-tag">DSLD Label</div></button>';
+        }).join('') + '</div>'
+      + (more ? '<div style="margin-top:12px"><button class="ai-btn" data-brand-more="' + esc(brand) + '">Show more labels</button></div>' : '');
+  }
+  async function loadBrandProducts(brand, more){
+    var box = document.getElementById('brandResults'); if (!box) return;
+    var token = navToken;
+    var still = function(){ var el = document.getElementById('brandResults'); return el && token === navToken; };
+    var st = BRAND_CACHE[brand];
+    if (st && !more){ showBrand(box, st, brand); return; }
+    if (!st) st = BRAND_CACHE[brand] = { list:[], total:0, offset:0 };
+    if (!more) box.innerHTML = '<div class="status"><span class="ai-spinner"></span>Searching the NIH label database…</div>';
+    else { var mb = box.querySelector('[data-brand-more]'); if (mb){ mb.textContent = 'Loading…'; mb.style.opacity = '.6'; } }
+    try {
+      var res = await fetch(API + '/brand-products?q=' + encodeURIComponent(brand) + '&size=25&from=' + st.offset);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      var got = parseHits(data), have = {};
+      st.list.forEach(function(p){ have[p.id] = 1; });
+      got.forEach(function(p){ if (!have[p.id]){ have[p.id] = 1; st.list.push(p); } });
+      st.offset += (data.hits || []).length;
+      st.total = (data.total && data.total.value) || st.list.length;
+      if ((data.hits || []).length === 0) st.total = st.offset;
+      if (still()) showBrand(document.getElementById('brandResults'), st, brand);
+    } catch (e){
+      console.error('DSLD brand search failed', e);
+      if (BRAND_CACHE[brand] && !BRAND_CACHE[brand].list.length) delete BRAND_CACHE[brand];
+      if (still()) document.getElementById('brandResults').innerHTML = nihError('data-retry-brand="' + esc(brand) + '"', e.message);
+    }
+  }
+  function noResultsHtml(query){
+    var stem = query.replace(/\b(complex|advanced|ultra|plus|formula|extra|strength)\b/ig, '').replace(/\s+/g, ' ').trim();
+    var first = query.split(/\s+/)[0], btns = '';
+    if (stem && stem.toLowerCase() !== query.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(stem) + '">Drop extra words: ' + esc(stem) + '</button>';
+    if (query.indexOf(' ') > -1 && first.length >= 3 && first.toLowerCase() !== stem.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(first) + '">Search just “' + esc(first) + '”</button>';
+    return '<div class="nores"><h4>Nothing found for “' + esc(query) + '”</h4><p>The NIH uses the wording printed on the bottle. Try a shorter or more general search' + (btns ? ', or one of these:' : '.') + '</p>' + (btns ? '<div class="chip-row">' + btns + '</div>' : '') + '</div>';
+  }
+  function markTab(){
+    var top = history[0] ? history[0].screen : 'home';
+    if (top !== 'search' && top !== 'guide') top = 'home';
+    var curS = history[history.length - 1], onScan = !!(curS && curS.screen === 'scan');
+    if (onScan) top = '';
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){ b.classList.toggle('on', b.getAttribute('data-tab') === top); });
+    var sbtn = document.querySelector('#tabs [data-scan]'); if (sbtn) sbtn.classList.toggle('on', onScan);
+  }
+  function goTab(tab){
+    history = [ { screen:tab, param:null } ];
+    render();
+    if (tab === 'search'){ var si = document.getElementById('searchInput'); if (si) setTimeout(function(){ si.focus(); }, 80); }
+  }
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var b = e.target.closest('[data-tab]'); if (b) goTab(b.getAttribute('data-tab'));
+  });
+
+  function matches(hay, q){ return hay.toLowerCase().indexOf(q.toLowerCase()) !== -1; }
+
+  function renderResults(query){
+    query = query || '';
+    var qMonos = MONOGRAPHS.filter(function(m){ return matches(m.name, query); });
+    var html = searchRow(query) + '<div id="prodResults"></div>';
+    if (qMonos.length){
+      html += '<div class="section-label">Ingredients & Herbs (' + qMonos.length + ')</div><div class="card-list">'
+        + qMonos.map(function(m){
+            return '<button class="card" data-go="monograph:' + m.id + '">'
+              + '<div class="top"><div><div class="name">' + esc(m.name) + '</div>'
+              + '<div class="meta">' + m.kind + '</div></div>'
+              + '<div class="chev">›</div></div>'
+              + '</button>';
+          }).join('')
+        + '</div>';
+    }
+    return html;
+  }
+
+  function productCards(list){
+    return '<div class="section-label">Products (' + list.length + ')</div><div class="card-list">'
+      + list.map(function(p){
+          return '<button class="card" data-go="product:' + esc(p.id) + '">'
+            + '<div class="top"><div><div class="name">' + esc(p.name) + '</div>'
+            + '<div class="meta">' + esc(p.brand) + (p.form ? ' · ' + esc(p.form) : '') + '</div></div>'
+            + '<div class="chev">›</div></div>'
+            + '<div class="kind-tag">DSLD Label</div>'
+            + '</button>';
+        }).join('')
+      + '</div>';
+  }
+
+  function nihError(retryAttr, detail){
+    return '<div class="err-box"><strong>Couldn’t reach the NIH database right now.</strong><br>' + esc(detail || '')
+      + '<br><button ' + retryAttr + '>Try again</button>'
+      + '<a href="https://dsld.od.nih.gov/" target="_blank" rel="noopener">Search the NIH database directly →</a></div>';
+  }
+
+  async function loadProductResults(query){
+    var box = document.getElementById('prodResults');
+    if (!box) return;
+    query = (query || '').trim();
+    if (query.length < 3){
+      box.innerHTML = '<div class="empty" style="padding:18px 10px">Type at least 3 characters to search product labels.</div>';
+      return;
+    }
+    var token = navToken;
+    var still = function(){ var el = document.getElementById('prodResults'); return el && token === navToken; };
+    if (RESULT_CACHE[query]){ showProducts(box, RESULT_CACHE[query], query); return; }
+    box.innerHTML = '<div class="status"><span class="ai-spinner"></span>Searching the NIH label database…</div>';
+    try {
+      var res = await fetch(API + '/browse-products?method=by_keyword&q=' + encodeURIComponent(query) + '&size=25');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      var seen = {}, list = [];
+      (data.hits || []).forEach(function(h){
+        var src = h._source !== undefined ? h._source : h;
+        if (typeof src === 'string'){ try { src = JSON.parse(src); } catch (e){} }
+        var id = src && (src.id || src.dsldId) || h._id;
+        if (!id) return;
+        var name = src.fullName || src.name || 'Unknown product', brand = src.brandName || '';
+        var key = (name + '|' + brand).toLowerCase();
+        if (seen[key]) return; seen[key] = 1;
+        var form = (src.physicalState && src.physicalState.langualCodeDescription) || '';
+        var sum = { id:String(id), name:name, brand:brand, form:form };
+        SUMMARIES[sum.id] = sum;
+        list.push(sum);
+      });
+      RESULT_CACHE[query] = list;
+      if (still()) showProducts(document.getElementById('prodResults'), list, query);
+    } catch (e){
+      console.error('DSLD search failed', e);
+      if (still()) document.getElementById('prodResults').innerHTML = nihError('data-retry-search="' + esc(query) + '"', e.message);
+    }
+  }
+  function showProducts(box, list, query){
+    box.innerHTML = list.length
+      ? productCards(list)
+      : noResultsHtml(query);
+  }
+
+  async function loadLabel(id){
+    var token = navToken;
+    try {
+      var res = await fetch(API + '/label/' + encodeURIComponent(id));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var raw = await res.json();
+      LABELS[id] = normalizeLabel(raw);
+      var cur = history[history.length - 1];
+      if (cur.screen === 'product' && cur.param === id) render();
+    } catch (e){
+      console.error('DSLD label failed', e);
+      var cur2 = history[history.length - 1];
+      if (token === navToken && cur2.screen === 'product' && cur2.param === id){
+        content.innerHTML = nihError('data-retry-label="' + esc(id) + '"', e.message);
+      }
+    }
+  }
+
+  function renderProduct(id){
+    var p = prodById(id);
+    if (!p) return '<div class="empty">Product not found.</div>';
+    var ingredientsHtml = p.ingredients.map(function(ing){
+      var cls = (ing.mono ? ' linked' : (ing.aiLink ? ' ai-link' : '')) + (ing.depth ? ' sub' : '') + (ing.macro ? ' macro' : '');
+      var goAttr = ing.mono ? ' data-go="monograph:' + ing.mono + '"' : (ing.aiLink ? ' data-ask-ai="' + esc(ing.name) + '"' : '');
+      var isClickable = ing.mono || ing.aiLink;
+      return '<button class="ingredient-row' + cls + '"' + goAttr + (isClickable ? ' style="cursor:pointer"' : ' disabled style="cursor:default"') + '>'
+        + '<span><span class="iname">' + esc(ing.name) + '</span> <span class="idetail">' + esc(ing.detail) + '</span>'
+        + (ing.mono ? '<br><span class="link-hint">View ingredient monograph ›</span>' : (ing.aiLink ? '<br><span class="ai-hint">Ask AI ›</span>' : '')) + '</span>'
+        + '<span class="iamt">' + esc(ing.amount) + '<br>' + esc(ing.dv) + '</span>'
+        + '</button>';
+    }).join('');
+
+    return ''
+      + '<div class="label-head">'
+      +   '<div class="brand">' + esc(p.brand) + '</div>'
+      +   '<h2>' + esc(p.name) + '</h2>'
+      +   '<div class="form">' + esc(p.form) + (p.form ? ' · ' : '') + 'Serving size: ' + esc(p.serving) + '</div>'
+      +   (p.upc ? '<div class="upc">UPC ' + esc(p.upc) + '</div>' : '')
+      +   (p.off === 1 ? '<div class="upc" style="color:var(--danger);font-weight:600">NIH lists this label as off market' + (p.offDate ? ' since ' + esc(p.offDate) : '') + '; the product may have been updated since.</div>' : '')
+      + '</div>'
+      + '<div class="panel"><h3>Supplement Facts</h3>' + (ingredientsHtml || '<div class="other-ing">No itemized ingredient data available for this product.</div>') + '</div>'
+      + (p.other ? '<div class="panel"><h3>Other Ingredients</h3><div class="other-ing">' + esc(p.other) + '</div></div>' : '')
+      + (p.claims.length ? '<div class="panel"><h3>Label Claims</h3><div class="claims">' + p.claims.map(function(c){ return '<span class="claim">' + esc(c) + '</span>'; }).join('') + '</div>'
+        + '<div class="footnote">*These statements have not been evaluated by the FDA. This product is not intended to diagnose, treat, cure, or prevent any disease.</div>'
+        + '</div>' : '')
+      + '<div class="source-line">Source: NIH Dietary Supplement Label Database (DSLD) · live record. Shows what the manufacturer declares — not contaminant testing.</div>'
+      + '<div class="panel ai-panel" id="aiPanel">' + renderAIPanel(p.id) + '</div>'
+      + '<div class="investigate-panel">'
+      +   '<h3>Complete ingredient analysis</h3>'
+      +   '<div class="investigate-text">Not all ingredients found in the NIH database? Use this link to investigate the evidence for every ingredient on this label.</div>'
+      +   '<div style="display:flex; gap:8px; margin-bottom:10px;"><input type="text" id="labelUrl-' + esc(id) + '" placeholder="Paste label image URL (optional)" style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:inherit;" /></div>'
+      +   '<button class="investigate-btn" data-investigate="' + esc(id) + '">🔍 Investigate the Evidence</button>'
+      + '</div>';
+  }
+
+  function renderAIPanel(productId){
+    if (aiCache[productId]){ return aiPanelResultHtml(aiCache[productId], productId); }
+    return ''
+      + '<div class="ai-panel-head"><span class="spark">✨</span><h3 style="margin:0;">AI Ingredient Summary</h3></div>'
+      + '<div class="ai-intro">Have Claude read this product’s ingredients against the NIH source material above and write a plain-language summary — generated live, not pre-written.</div>'
+      + '<button class="ai-btn" data-ai-generate="' + esc(productId) + '">✨ Generate summary</button>';
+  }
+
+  function aiPanelResultHtml(text, productId){
+    return ''
+      + '<div class="ai-panel-head"><span class="spark">✨</span><h3 style="margin:0;">AI Ingredient Summary</h3></div>'
+      + '<div class="ai-live">' + esc(text) + '</div>'
+      + '<div class="ai-meta"><span class="src">Generated by Claude · grounded in the NIH source above, not medical advice</span>'
+      + '<button data-ai-generate="' + esc(productId) + '" data-ai-force="1">Regenerate</button></div>';
+  }
+
+  function renderMonograph(id){
+    var m = monoById(id);
+    if (!m) return '<div class="empty">Monograph not found.</div>';
+    var related = relatedProducts(id);
+    var level = monoLevel;
+    var d = m[level];
+
+    var relatedHtml = related.length
+      ? '<div class="section-label">Found in products you looked up</div>'
+        + related.map(function(p){
+            return '<button class="related-row" data-go="product:' + esc(p.id) + '"><span>' + esc(p.brand) + ' — ' + esc(p.name) + '</span><span class="chev">›</span></button>';
+          }).join('')
+      : '';
+
+    return ''
+      + '<div class="mono-head"><div class="kind">' + m.kind + '</div><h2>' + esc(m.name) + '</h2></div>'
+      + '<div class="toggle">'
+      +   '<button class="' + (level==='consumer'?'active':'') + '" data-level="consumer">Plain language</button>'
+      +   '<button class="' + (level==='clinical'?'active':'') + '" data-level="clinical">Clinical detail</button>'
+      + '</div>'
+      + '<div class="mono-section"><h3>What it is</h3><p>' + esc(d.what) + '</p></div>'
+      + '<div class="mono-section"><h3>What the evidence shows</h3><p>' + esc(d.evidence) + '</p></div>'
+      + '<div class="mono-section"><h3>Safety &amp; interactions</h3><p>' + esc(d.safety) + '</p></div>'
+      + '<div class="mono-section"><h3>Bottom line</h3><p>' + esc(d.bottom) + '</p></div>'
+      + relatedHtml
+      + '<div class="mono-footnote">Source: NIH Office of Dietary Supplements / NCCIH fact sheet (summarized). Not a substitute for advice from your pharmacist or provider.</div>';
+  }
+
+  function wireContent(){
+    var searchInput = document.getElementById('searchInput');
+    var searchGo = document.getElementById('searchGo');
+    function doSearch(){
+      var q = (searchInput && searchInput.value || '').trim();
+      if (!q) return;
+      var cur = history[history.length-1];
+      var target = (cur.screen === 'search' && smode === 'brand') ? 'brand' : 'results';
+      navigate(target, q, { replace: cur.screen === 'results' || cur.screen === 'brand' });
+    }
+    if (searchGo) searchGo.addEventListener('click', doSearch);
+    if (searchInput) searchInput.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); doSearch(); } });
+    vcAttach();
+  }
+
+  content.addEventListener('click', function(e){
+    var retryS = e.target.closest('[data-retry-search]');
+    if (retryS){ var q = retryS.getAttribute('data-retry-search'); delete RESULT_CACHE[q]; loadProductResults(q); return; }
+    var retryL = e.target.closest('[data-retry-label]');
+    if (retryL){ var lid = retryL.getAttribute('data-retry-label'); content.innerHTML = '<div class="status"><span class="ai-spinner"></span>Loading label from the NIH database…</div>'; loadLabel(lid); return; }
+
+    if (e.target.closest('.sc-photo')){ scStopCam(); scPaint(); }
+    var scEl = e.target.closest('[data-scan],[data-sc],[data-sc-open]');
+    if (scEl){ scAction(scEl); return; }
+    var tabGo = e.target.closest('[data-tab-go]');
+    if (tabGo){ goTab(tabGo.getAttribute('data-tab-go')); return; }
+    var sm = e.target.closest('[data-smode]');
+    if (sm){ smode = sm.getAttribute('data-smode'); content.innerHTML = renderSearchTab(); wireContent(); var si2 = document.getElementById('searchInput'); if (si2) si2.focus(); return; }
+    var tryEl = e.target.closest('[data-try]');
+    if (tryEl){ var tp = tryEl.getAttribute('data-try').split('|'); smode = tp[0]; navigate(tp[0] === 'brand' ? 'brand' : 'results', tp[1]); return; }
+    var recEl = e.target.closest('[data-recent]');
+    if (recEl){ var rr = getRecents()[+recEl.getAttribute('data-recent')]; if (rr) navigate(rr.m === 'brand' ? 'brand' : 'results', rr.q); return; }
+    if (e.target.closest('[data-recent-clear]')){ try { localStorage.removeItem(RKEY); } catch (e2){} content.innerHTML = renderSearchTab(); wireContent(); return; }
+    var moreB = e.target.closest('[data-brand-more]');
+    if (moreB){ loadBrandProducts(moreB.getAttribute('data-brand-more'), true); return; }
+    var retryB = e.target.closest('[data-retry-brand]');
+    if (retryB){ var bq = retryB.getAttribute('data-retry-brand'); delete BRAND_CACHE[bq]; loadBrandProducts(bq, false); return; }
+    var gridEl = e.target.closest('[data-grid]');
+    if (gridEl){
+      var gtr = document.getElementById('trk-' + gridEl.getAttribute('data-grid')), on = gtr.classList.toggle('grid');
+      gridEl.textContent = on ? 'Show less' : 'See All ›'; gtr.scrollLeft = 0;
+      var grail = gtr.closest('.rail'); if (grail && grail._upd) grail._upd();
+      return;
+    }
+    var arrEl = e.target.closest('[data-arrow]');
+    if (arrEl){ var atr = arrEl.closest('.rail').querySelector('.track'); atr.scrollBy({ left: atr.clientWidth * .8 * (+arrEl.getAttribute('data-arrow')), behavior:'smooth' }); return; }
+
+    var goEl = e.target.closest('[data-go]');
+    if (goEl){
+      var parts = goEl.getAttribute('data-go').split(':');
+      navigate(parts[0], parts.slice(1).join(':'));
+      return;
+    }
+    var askEl = e.target.closest('[data-ask-ai]');
+    if (askEl){
+      var here = history[history.length - 1];
+      if (here && here.screen === 'product'){
+        here.scroll = content.scrollTop;   // remember where on the label we were
+        navigate('ingredient', here.param + '|' + askEl.getAttribute('data-ask-ai'));
+      } else {
+        window.open(SITE + '/product-lookup?q=' + encodeURIComponent(askEl.getAttribute('data-ask-ai')), '_blank');
+      }
+      return;
+    }
+    if (e.target.closest('[data-ing-back]')){ goBack(); return; }
+    if (e.target.closest('[data-investigate-ing]')){
+      var ic = history[history.length - 1], iq = splitIngParam(ic.param), ip = prodById(iq.id), ii = ip && findIngredient(ip, iq.name);
+      if (ip && ii) window.open(buildIngredientInvestigateUrl(ip, ii), '_blank');
+      return;
+    }
+    var levelEl = e.target.closest('[data-level]');
+    if (levelEl){
+      monoLevel = levelEl.getAttribute('data-level');
+      var cur = history[history.length - 1];
+      content.innerHTML = renderMonograph(cur.param);
+      return;
+    }
+    var aiEl = e.target.closest('[data-ai-generate]');
+    if (aiEl){
+      generateAISummary(aiEl.getAttribute('data-ai-generate'), aiEl.getAttribute('data-ai-force') === '1');
+      return;
+    }
+    var fbEl = e.target.closest('[data-ai-fallback]');
+    if (fbEl){
+      var fp = prodById(fbEl.getAttribute('data-ai-fallback'));
+      if (fp) window.open(buildInvestigateUrl(fp), '_blank');
+      return;
+    }
+    var invEl = e.target.closest('[data-investigate]');
+    if (invEl){
+      var productId = invEl.getAttribute('data-investigate');
+      var labelUrlInput = document.getElementById('labelUrl-' + productId);
+      var labelUrl = labelUrlInput ? labelUrlInput.value.trim() : '';
+      var product = prodById(productId);
+      if (!product) return;
+      var finalUrl = labelUrl
+        ? SITE + '/product-lookup?label=' + encodeURIComponent(labelUrl)   // label image URL provided
+        : buildInvestigateUrl(product);                                     // otherwise the full analysis prompt
+      window.open(finalUrl, '_blank');
+      return;
+    }
+  });
+
+  /* ================= Barcode scanner (shelf scanning) =================
+     camera -> barcode digits -> product databases name the bottle (server function) -> NIH label match -> the normal product screen.
+     The label's ingredients are what matter, so package size is ignored; the UPC is used only to confirm an exact label. */
+  var SCAN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6" stroke-width="1.6"/></svg>';
+  var SC = { cand:'', candAt:0, cam:false, stream:null, timer:null, busy:false, det:null, rd:null, lastSeen:'', lastAt:0, run:0, view:'idle', code:'', names:[], res:null, err:'', torch:false };
+  var SKEY = 'sf_scans';
+  function scList(){ try { var r = JSON.parse(localStorage.getItem(SKEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e){ return []; } }
+  function scRemember(c){
+    if (!c || !c.id) return;
+    var r = scList().filter(function(x){ return x.id !== c.id; });
+    r.unshift({ id: c.id, brand: c.brand || '', name: c.name || '', t: Date.now() });
+    try { localStorage.setItem(SKEY, JSON.stringify(r.slice(0, 20))); } catch (e){}
+  }
+
+  /* --- number handling --- */
+  function scDigits(s){ return String(s || '').replace(/\D+/g, ''); }
+  function scStrip(d){ return d.replace(/^0+/, ''); }
+  function scSame(a, b){
+    var x = scStrip(scDigits(a)), y = scStrip(scDigits(b));
+    if (!x || !y) return false;
+    if (x === y) return true;
+    return x.length > 6 && y.length > 6 && (x.slice(0, -1) === y || y.slice(0, -1) === x);
+  }
+  function scCheckOk(d){
+    if (d.length < 8) return false;
+    var sum = 0, body = d.slice(0, -1), n = body.length;
+    for (var i = 0; i < n; i++){ var v = +body.charAt(n - 1 - i); sum += (i % 2 === 0) ? v * 3 : v; }
+    return ((10 - (sum % 10)) % 10) === +d.charAt(d.length - 1);
+  }
+
+  // a read counts only if it is a real product number: digits only, 8/12/13/14 long, with a correct check digit.
+  // Anything else (a QR code, a smudge, noise between bars) is ignored and the camera keeps looking.
+  function scValid(text){
+    var d = String(text || '').replace(/\s+/g, '');
+    if (!/^\d+$/.test(d)) return false;
+    if (d.length === 8){
+      if (scCheckOk(d)) return true;                       // EAN-8
+      var ns = d.charAt(0), a = d.slice(1, 6), e = d.charAt(6), x;
+      if (ns !== '0' && ns !== '1') return false;           // UPC-E: expand to 12 digits, then check
+      if (e < '3') x = a.slice(0, 2) + e + '0000' + a.slice(2);
+      else if (e === '3') x = a.slice(0, 3) + '00000' + a.slice(3);
+      else if (e === '4') x = a.slice(0, 4) + '00000' + a.slice(4);
+      else x = a + '0000' + e;
+      return scCheckOk(ns + x + d.charAt(7));
+    }
+    return (d.length === 12 || d.length === 13 || d.length === 14) && scCheckOk(d);
+  }
+
+  /* --- name -> NIH label matching --- */
+  var SC_STOP = { ct:1, count:1, counts:1, tablet:1, tablets:1, softgel:1, softgels:1, capsule:1, capsules:1, caplet:1, caplets:1, gummies:1, gummy:1, pack:1, of:1, the:1, and:1, 'with':1, 'for':1, supplement:1, dietary:1, bottle:1, pk:1, 'x':1,
+    more:1, than:1, a:1, an:1, month:1, months:1, supply:1, packaging:1, may:1, vary:1, varies:1, value:1, size:1, bonus:1, 'new':1, free:1 };
+  var SC_UNITS = { mg:1, mcg:1, ug:1, iu:1, g:1, ml:1, cfu:1 };
+  var SC_CORP = { inc:1, llc:1, ltd:1, corp:1, corporation:1, co:1, company:1, com:1, services:1, service:1, usa:1, us:1, international:1, brands:1, group:1, holdings:1, products:1, enterprises:1, lp:1, plc:1 };
+  function scNorm(t){
+    return String(t || '').toLowerCase().replace(/µg/g, 'mcg').replace(/\([^)]*\)/g, ' ').replace(/(\d),(\d{3})/g, '$1$2').replace(/\b\d+\s*months?\b/g, ' ')
+      .replace(/\b(\d+)\s*(?:liquid\s+|vegetarian\s+|veggie\s+|chewable\s+)?(ct|count|counts|tablets?|capsules?|softgels?|caplets?|gummies|pk)\b/g, ' ')
+      .replace(/\bd[\s-]?3\b/g, 'd3').replace(/\bb[\s-]?12\b/g, 'b12').replace(/\bb[\s-]?6\b/g, 'b6').replace(/\bk[\s-]?2\b/g, 'k2')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function scToks(t){ return scNorm(t).split(' ').filter(function(w){ return w && !SC_STOP[w]; }); }
+  function scUniq(a){ return a.filter(function(v, i){ return a.indexOf(v) === i; }); }
+  function scStrengths(t){
+    var s = String(t || '').toLowerCase().replace(/µg/g, 'mcg').replace(/(\d),(\d{3})/g, '$1$2'), out = [], re = /(\d+(?:\.\d+)?)\s*(mg|mcg|ug|iu|g|ml|cfu)\b/g, m;
+    while ((m = re.exec(s))) out.push(m[1] + (m[2] === 'ug' ? 'mcg' : m[2]));
+    return out;
+  }
+  // The product's short name: the words before the first dash / comma / pipe / colon of a long marketing title, brand removed.
+  // "Pure Encapsulations Magnesium (Citrate) | Supplement for Sleep, Heart Health..." -> core ["magnesium"], full ["magnesium","citrate"].
+  // core ignores parentheses (they are often pack or form notes); full keeps the words inside them (often the form: Citrate, Glycinate).
+  var scGENERIC = { vitamin:1, vitamins:1, mineral:1, minerals:1, supplement:1, herbal:1, natural:1, organic:1, extract:1, complex:1, formula:1, support:1, multi:1 };
+  function scParts(name, bTok){
+    var segs = String(name || '').replace(/[®™]/g, ' ').split(/\s[-–—]\s|[,;:|*•]/), core = [], full = [], k, c, f, real;
+    for (k = 0; k < segs.length; k++){
+      c = scToks(segs[k]).filter(function(w){ return bTok.indexOf(w) < 0; });
+      f = scToks(String(segs[k]).replace(/[()]/g, ' ')).filter(function(w){ return bTok.indexOf(w) < 0; });
+      core = core.concat(c); full = full.concat(f);
+      real = core.filter(function(w){ return !/^\d+$/.test(w) && !SC_UNITS[w] && !scGENERIC[w]; });
+      if (real.length) break;
+    }
+    return { core: scUniq(core), full: scUniq(full) };
+  }
+  function scCleanBrand(b){ return scToks(b).filter(function(w){ return !SC_CORP[w]; }).join(' '); }
+  function scHits(j){ return (j && j.hits && j.hits.hits ? j.hits.hits : (j && j.hits) || []); }
+  function scSrc(h){ var x = h._source !== undefined ? h._source : h; if (typeof x === 'string'){ try { x = JSON.parse(x); } catch (e){} } return { id: String((x && (x.id || x.dsldId)) || h._id || ''), name: (x && (x.fullName || x.name)) || '', brand: (x && x.brandName) || '', upc: x && x.upcSku }; }
+  function scGet(u){ return fetch(u).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+  function scMeta(c, l){
+    c.upc = l.upcSku; c.off = l.offMarket; c.entry = l.entryDate || '';
+    c.rel = (l.labelRelationships || []).map(function(r){ return String(r.labelId); });
+    var ev = (l.events || []).filter(function(e){ return /off market/i.test(e.type || ''); })[0];
+    c.offDate = ev ? ev.date : '';
+    return c;
+  }
+  function scStatus(c){
+    var s = [];
+    if (c.off === 1) s.push('off market' + (c.offDate ? ' since ' + c.offDate : '')); else if (c.off === 0) s.push('on market');
+    if (c.entry) s.push('entered NIH ' + c.entry);
+    return s.join(' · ');
+  }
+  function scCmp(a, b){ return b.score - a.score || (b.close || 0) - (a.close || 0) || (b.extra || 0) - (a.extra || 0) || (a.off || 0) - (b.off || 0) || String(b.entry || '').localeCompare(String(a.entry || '')); }
+
+  // names = [{brand,name}] from the barcode databases. done({ primary, exact, others, hidden, search }) is called once; onRelated(list) later for an exact match.
+  function scMatch(code, names, done, onRelated){
+    var brand = '', best = null, allText = {}, wantStr = [];
+    names.forEach(function(n){
+      if (!brand){ var cb = scCleanBrand(n.brand); if (cb) brand = cb; }
+      scToks(n.brand + ' ' + n.name).forEach(function(w){ allText[w] = 1; });
+      wantStr = wantStr.concat(scStrengths(n.name));
+      var t = scToks(n.name); if (!best || t.length > best.t.length) best = { t: t, n: n };
+    });
+    wantStr = scUniq(wantStr);
+    if (!best){ done({ primary: null, search: '' }); return; }
+    var bTok = scToks(brand);
+    var kw = best.t.filter(function(w){ return bTok.indexOf(w) < 0; });
+    var parts = scParts(best.n.name, bTok), core = parts.core.length ? parts.core : kw, shortFull = parts.full.length ? parts.full : core;
+    var textOf = function(a){ return a.filter(function(w){ return !/^\d+$/.test(w) && !SC_UNITS[w]; }).slice(0, 4).join(' '); };
+    var q = textOf(shortFull) || textOf(core) || core.slice(0, 4).join(' ');
+    var qCore = textOf(core);
+    var searchText = ((brand ? brand + ' ' : '') + q).trim();
+    var guesses = [];
+    if (brand) guesses.push(brand);
+    var first2 = best.t.slice(0, 2).join(' ');
+    if (brand && first2 && guesses.indexOf(first2) < 0 && bTok.some(function(w){ return best.t.slice(0, 2).indexOf(w) >= 0; })) guesses.push(first2);
+    var plan = [];
+    guesses.forEach(function(g){ plan.push(API + '/search-filter?q=' + encodeURIComponent(q) + '&brand=' + encodeURIComponent(g) + '&status=2&size=25'); });
+    if (qCore && qCore !== q && guesses.length) plan.push(API + '/search-filter?q=' + encodeURIComponent(qCore) + '&brand=' + encodeURIComponent(guesses[0]) + '&status=2&size=25');
+    plan.push(API + '/search-filter?q=' + encodeURIComponent(q) + '&status=2&size=25');
+    if (guesses.length) plan.push(API + '/brand-products?q=' + encodeURIComponent(guesses[guesses.length - 1]) + '&size=1000');
+    if (!q) plan = [];
+
+    var pool = {}, opened = {}, i = 0;
+    function fit(c){
+      var cb = scToks(c.brand), need = core.filter(function(w){ return cb.indexOf(w) < 0; });
+      if (!need.length) return 0;
+      var ct = scToks(c.name), hit = 0; need.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
+      return hit / need.length;
+    }
+    function closeOf(c){
+      var cb = scToks(c.brand), cf = scToks(String(c.name || '').replace(/[()]/g, ' ')).filter(function(w){ return cb.indexOf(w) < 0; });
+      if (!cf.length || !shortFull.length) return 0;
+      var inter = 0; shortFull.forEach(function(w){ if (cf.indexOf(w) >= 0) inter++; });
+      return inter / (shortFull.length + cf.length - inter);
+    }
+    function extraFit(c){
+      var cb = scToks(c.brand), ex = kw.filter(function(w){ return core.indexOf(w) < 0 && cb.indexOf(w) < 0; });
+      if (!ex.length) return 0;
+      var ct = scToks(c.name), hit = 0; ex.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
+      return hit / ex.length;
+    }
+    function decorate(c){
+      c.score = fit(c); c.extra = extraFit(c); c.close = closeOf(c);
+      var cb = scToks(c.brand);
+      c.brandOk = !cb.length || cb.every(function(w){ return allText[w]; });
+      var cs = scStrengths(c.name);
+      c.strOk = !wantStr.length || !cs.length || cs.some(function(s){ return wantStr.indexOf(s) >= 0; });
+      return c;
+    }
+    function finish(){
+      var all = Object.keys(pool).map(function(k){ return pool[k]; });
+      var exact = all.filter(function(c){ return c.exact; })[0];
+      var hidden = all.filter(function(c){ return !c.strOk && c !== exact; }).length;
+      var list = all.filter(function(c){ return c.brandOk && c.strOk && c.score >= 0.5; }).sort(scCmp);
+      if (!list.length) list = all.filter(function(c){ return c.strOk && c.score >= 0.5; }).sort(scCmp);
+      var primary = exact || list[0] || null;
+      var others = list.filter(function(c){ return c !== primary; }).slice(0, 3);
+      done({ primary: primary, exact: !!exact, others: others, hidden: hidden, search: searchText, name: best.n });
+      if (exact && onRelated) scRelated(exact, onRelated);
+    }
+    function step(){
+      if (i >= plan.length) return finish();
+      var url = plan[i++];
+      scGet(url).then(function(j){
+        var cands = scHits(j).map(scSrc).filter(function(c){ return c.id; }).map(decorate);
+        var todo = cands.filter(function(c){ return c.score >= 0.5 && !opened[c.id]; })
+          .sort(function(a, b){ return ((b.brandOk ? 2 : 0) + (b.strOk ? 1 : 0)) - ((a.brandOk ? 2 : 0) + (a.strOk ? 1 : 0)) || b.score - a.score || b.close - a.close || b.extra - a.extra; }).slice(0, 10);
+        // nothing fit the name well: still open the first few labels of the right brand, because the UPC is the real proof
+        if (!todo.length && bTok.length) todo = cands.filter(function(c){ return c.brandOk && c.strOk && !opened[c.id]; }).slice(0, 6);
+        return Promise.all(todo.map(function(c){
+          opened[c.id] = 1;
+          return scGet(API + '/label/' + encodeURIComponent(c.id)).then(function(l){ scMeta(c, l); c.exact = scSame(l.upcSku, code); pool[c.id] = c; }, function(){ pool[c.id] = c; });
+        })).then(function(){
+          var hasExact = Object.keys(pool).some(function(k){ return pool[k].exact; });
+          if (hasExact) finish(); else step();
+        });
+      }).catch(function(){ step(); });
+    }
+    step();
+  }
+  // other printings NIH links to the same product ("image difference, same product")
+  function scRelated(ex, cb){
+    var seen = {}; seen[ex.id] = 1;
+    var queue = (ex.rel || []).slice(), out = [];
+    function next(){
+      if (!queue.length || out.length >= 6) return cb(out.filter(function(c){ return !c.unavailable; }));
+      var id = queue.shift(); if (seen[id]) return next(); seen[id] = 1;
+      scGet(API + '/label/' + encodeURIComponent(id)).then(function(l){
+        if (l && l.id){ var c = scMeta({ id: String(l.id), brand: l.brandName || '', name: l.fullName || '', score: 0 }, l); out.push(c); (c.rel || []).forEach(function(r){ if (!seen[r]) queue.push(r); }); }
+      }, function(){}).then(next);
+    }
+    next();
+  }
+
+  /* --- screen --- */
+  function renderScan(){
+    return '<div class="scan">'
+      + '<div class="sc-view" id="scView" hidden><video id="scVid" playsinline muted autoplay></video><div class="sc-frame"></div>'
+      +   '<div class="sc-hint">Hold the barcode inside the box · about a hand-width away</div>'
+      +   '<button class="sc-torch" id="scTorch" data-sc="torch" hidden>Light</button><button class="sc-x" data-sc="stop">Close camera</button></div>'
+      + '<div id="scBody"></div>'
+      + '<div class="sc-tools"><label class="sc-photo" for="scPhoto">📷 Take a photo of the barcode</label></div>'
+      + '<input id="scPhoto" type="file" accept="image/*" capture="environment" hidden>'
+      + '<div class="sc-type"><input id="scManual" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Or type the barcode number"><button type="button" data-sc="manual">Look up</button></div>'
+      + '<div id="scRecent"></div>'
+      + '</div>';
+  }
+  function scNameLabel(n){
+    if (!n) return '';
+    var nm = String(n.name || '').replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim(), b = scCleanBrand(n.brand).split(' ')[0] || '';
+    if (b && nm.toLowerCase().indexOf(b) < 0) nm = (n.brand ? n.brand + ' ' : '') + nm;
+    nm = nm.replace(/\b(more than|over)\b.*$/i, '').trim();
+    return nm.length > 70 ? nm.slice(0, 70).replace(/\s+\S*$/, '') + '\u2026' : nm;
+  }
+  function scResultHtml(){
+    var r = SC.res, p = r.primary;
+    var nm = (p.brand ? p.brand + ' — ' : '') + p.name;
+    var warn = (p.off === 1) ? '<p class="sc-warn">NIH lists this label as off market' + (p.offDate ? ' since ' + esc(p.offDate) : '') + ', so the product may have been reformulated since. Compare the ingredient list with the bottle in your hand.</p>' : '';
+    var note = r.exact ? '<p class="sc-note">The barcode matches this NIH label.</p>' : '<p class="sc-note">NIH lists a product with this name, possibly in a different package size. Compare the ingredient list with the bottle in your hand.</p>';
+    var html = '<div class="sc-card ok' + (p.off === 1 ? ' warn' : '') + '"><div class="sc-kicker">' + (r.exact ? 'Matched by barcode' : 'Likely match') + '</div>'
+      + '<div class="sc-name">' + esc(nm) + '</div>'
+      + (scStatus(p) ? '<div class="sc-meta">' + esc(scStatus(p)) + '</div>' : '')
+      + note + warn
+      + '<button class="sc-btn" data-sc-open="' + esc(p.id) + '">Show ingredients &amp; evidence ›</button>'
+      + '<button class="sc-btn alt" data-sc="again">' + SCAN_ICON.replace('<svg ', '<svg style="width:18px;height:18px;vertical-align:-3px;margin-right:6px" ') + 'Scan another product</button></div>';
+    var more = (r.exact ? (r.related || []) : r.others) || [];
+    if (more.length){
+      html += '<div class="sc-sub">' + (r.exact ? 'Other NIH labels for this product' : 'Other close NIH labels') + '</div>'
+        + more.map(function(c){ return '<button class="sc-alt" data-sc-open="' + esc(c.id) + '"><b>' + esc((c.brand ? c.brand + ' — ' : '') + c.name) + '</b><span>' + esc(scStatus(c)) + '</span></button>'; }).join('');
+    }
+    html += '<button class="sc-alt" style="margin-top:6px" data-go="results:' + esc(r.search) + '"><b>Not the right one? Search NIH for “' + esc(r.search) + '”</b></button>';
+    return html;
+  }
+  function scBodyHtml(){
+    if (SC.cam) return '<div class="status" style="padding:4px 2px">Looking for a barcode…</div>';
+    var shown = SC.code ? SC.code.replace(/^(\d)(\d{5})(\d{5})(\d)$/, '$1 $2 $3 $4') : '';
+    if (SC.view === 'looking') return '<div class="sc-card"><div class="status" style="padding:2px 0"><span class="ai-spinner"></span>Read ' + esc(shown) + ' — looking up the product…</div></div>';
+    if (SC.view === 'matching') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">' + esc(scNameLabel(SC.names[0])) + '</div><div class="status" style="padding:2px 0"><span class="ai-spinner"></span>Matching it to NIH labels…</div></div>';
+    if (SC.view === 'result' && SC.res && SC.res.primary) return scResultHtml();
+    if (SC.view === 'none'){
+      var s = SC.res && SC.res.search;
+      return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">' + esc(scNameLabel(SC.names[0]) || 'Product not recognised') + '</div>'
+        + '<p>The NIH database does not seem to have a label for this product. Not every supplement is listed there.</p>'
+        + (s ? '<button class="sc-btn" data-go="results:' + esc(s) + '">Search NIH for “' + esc(s) + '”</button>' : '')
+        + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    }
+    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number. Try typing the product name in Search, or scan the bottle again.</p><button class="sc-btn" data-tab-go="search">Search by name</button><button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    if (SC.view === 'err') return '<div class="sc-card warn"><div class="sc-kicker">Problem</div><p>' + esc(SC.err) + '</p><button class="sc-btn" data-sc="start">Try the camera again</button></div>';
+    return '<div class="sc-card"><div class="sc-name">Scan a supplement barcode</div><p>Check any bottle on the shelf before you buy it. Hold the bottle about a hand-width from the camera with the bars flat inside the box.</p><button class="sc-btn" data-sc="start">' + SCAN_ICON.replace('<svg ', '<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:7px" ') + 'Start camera</button></div>';
+  }
+  function scRecentHtml(){
+    var l = scList(); if (!l.length) return '';
+    return '<div class="sc-sub">Recently scanned on this phone</div>'
+      + l.slice(0, 8).map(function(x){ return '<button class="sc-alt" data-go="product:' + esc(x.id) + '"><b>' + esc((x.brand ? x.brand + ' — ' : '') + x.name) + '</b><span>' + esc(new Date(x.t).toLocaleDateString()) + '</span></button>'; }).join('')
+      + '<button class="sc-clear" data-sc="clear">Clear this list</button>';
+  }
+  function scPaint(){
+    var v = document.getElementById('scView'), b = document.getElementById('scBody'), rc = document.getElementById('scRecent');
+    if (!b) return;
+    if (v) v.hidden = !SC.cam;
+    b.innerHTML = scBodyHtml();
+    if (rc) rc.innerHTML = scRecentHtml();
+  }
+
+  /* --- camera --- */
+  function scStopCam(){
+    if (SC.timer){ clearInterval(SC.timer); SC.timer = null; }
+    if (SC.stream){ SC.stream.getTracks().forEach(function(t){ t.stop(); }); SC.stream = null; }
+    SC.cam = false; SC.torch = false;
+    var v = document.getElementById('scVid'); if (v) v.srcObject = null;
+  }
+  function scLoadZX(cb){
+    if (window.ZXing && ZXing.BrowserMultiFormatReader) return cb(true);
+    var s = document.createElement('script'); s.src = '/scan-vendor/zxing.min.js';
+    s.onload = function(){ cb(!!(window.ZXing && ZXing.BrowserMultiFormatReader)); }; s.onerror = function(){ cb(false); };
+    document.head.appendChild(s);
+  }
+  function scReader(){
+    if (SC.rd || !(window.ZXing && ZXing.MultiFormatReader)) return SC.rd;
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    SC.rd = new ZXing.MultiFormatReader(); SC.rd.setHints(hints);
+    return SC.rd;
+  }
+  function scDecodeCanvas(canvas){
+    var rd = scReader(); if (!rd) return null;
+    var src = new ZXing.HTMLCanvasElementLuminanceSource(canvas), bins = [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer];
+    for (var k = 0; k < bins.length; k++){ try { var r = rd.decode(new ZXing.BinaryBitmap(new bins[k](src))); if (r && scValid(r.getText())) return r; } catch (e){} }
+    return null;
+  }
+  function scGot(text){
+    var now = Date.now();
+    if (text === SC.lastSeen && now - SC.lastAt < 10000) return;
+    SC.lastSeen = text; SC.lastAt = now;
+    scStopCam();
+    try { if (navigator.vibrate) navigator.vibrate(40); } catch (e){}
+    scLookup(text);
+  }
+  var scCv = document.createElement('canvas');
+  // live reads must agree twice in a row (within 2.5 s) before they are believed, so a stray read from a QR code or noise never goes through
+  function scSeen(text){
+    if (!scValid(text)) return;
+    var now = Date.now();
+    if (SC.cand === text && now - SC.candAt < 2500){ SC.cand = ''; scGot(text); }
+    else { SC.cand = text; SC.candAt = now; }
+  }
+  function scFrame(){
+    var v = document.getElementById('scVid');
+    if (SC.busy || !v || !v.videoWidth) return;
+    SC.busy = true;
+    var done = function(){ SC.busy = false; };
+    if (SC.det){
+      SC.det.detect(v).then(function(r){ if (r && r.length){ var ok = r.filter(function(x){ return scValid(x.rawValue); })[0]; if (ok) scSeen(ok.rawValue); } }, function(){}).then(done, done);
+      return;
+    }
+    try {
+      // read only what is inside the white guide box (the box covers 82% of the visible width and the middle 46% of the height),
+      // so a QR code or another barcode off to the side is not even looked at
+      var vw = v.videoWidth, vh = v.videoHeight, ve = document.getElementById('scView');
+      var vis = Math.min(1, ((ve && ve.clientHeight) ? ve.clientWidth / ve.clientHeight : 4 / 3) / (vw / vh));
+      var cw = Math.round(vw * vis * 0.82), ch = Math.round(vh * 0.46), cx = Math.round((vw - cw) / 2), cy = Math.round(vh * 0.27);
+      scCv.width = cw; scCv.height = ch;
+      scCv.getContext('2d', { willReadFrequently: true }).drawImage(v, cx, cy, cw, ch, 0, 0, cw, ch);
+      var res = scDecodeCanvas(scCv);
+      if (res) scSeen(res.getText());
+    } catch (e){}
+    done();
+  }
+  function scOpenStream(){
+    var tries = [
+      { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false }
+    ], n = 0;
+    function attempt(){
+      return navigator.mediaDevices.getUserMedia(tries[n]).catch(function(e){
+        if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e;
+        if (++n < tries.length) return attempt();
+        throw e;
+      });
+    }
+    return Promise.race([attempt(), new Promise(function(res, rej){ setTimeout(function(){ var e = new Error('timeout'); e.name = 'TimeoutError'; rej(e); }, 10000); })]);
+  }
+  function scFail(msg){ scStopCam(); SC.view = 'err'; SC.err = msg + ' You can take a photo of the barcode or type the number below.'; scPaint(); }
+  function scStartCam(){
+    if (!document.getElementById('scVid')) return;
+    scStopCam(); SC.view = 'idle'; SC.res = null;
+    var my = ++SC.run;
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ scFail('This browser does not allow camera access here.'); return; }
+    if (!('BarcodeDetector' in window)) scLoadZX(function(){});
+    SC.cam = true; scPaint();
+    scOpenStream().then(function(s){
+      if (my !== SC.run || !document.getElementById('scVid')){ s.getTracks().forEach(function(t){ t.stop(); }); throw { name: 'Cancelled' }; }
+      SC.stream = s;
+      var v = document.getElementById('scVid');
+      v.muted = true; v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('autoplay', '');
+      v.srcObject = s;
+      try { var tr = s.getVideoTracks()[0], caps = tr && tr.getCapabilities ? tr.getCapabilities() : {}; var tb = document.getElementById('scTorch'); if (tb) tb.hidden = !caps.torch; } catch (e){}
+      return new Promise(function(res, rej){
+        var t = setTimeout(function(){ rej({ name: 'NoFrames' }); }, 6000);
+        function ready(){ if (v.videoWidth){ clearTimeout(t); res(); } }
+        v.onloadedmetadata = function(){ var p = v.play(); if (p && p.catch) p.catch(function(){}); ready(); };
+        v.onplaying = ready; v.onresize = ready;
+        var p = v.play(); if (p && p.catch) p.catch(function(){}); ready();
+      });
+    }).then(function(){
+      if (!SC.stream) return;
+      if ('BarcodeDetector' in window){ try { SC.det = new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8'] }); } catch (e){ SC.det = null; } }
+      if (SC.det){ SC.timer = setInterval(scFrame, 150); return; }
+      scLoadZX(function(ok){
+        if (!SC.stream) return;
+        if (!ok){ scFail('The scanner library did not load.'); return; }
+        scReader(); SC.timer = setInterval(scFrame, 200);
+      });
+    }).catch(function(e){
+      if (e && e.name === 'Cancelled') return;
+      var n = (e && e.name) || 'error';
+      scFail(n === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access in your browser settings, then try again.'
+           : n === 'NotFoundError' ? 'No camera was found.'
+           : n === 'NotReadableError' ? 'The camera is busy in another app.'
+           : n === 'TimeoutError' || n === 'NoFrames' ? 'The camera did not start.'
+           : 'The camera view would not start.');
+    });
+  }
+  function scTorch(){
+    if (!SC.stream) return;
+    var tr = SC.stream.getVideoTracks()[0]; if (!tr || !tr.applyConstraints) return;
+    SC.torch = !SC.torch;
+    tr.applyConstraints({ advanced: [{ torch: SC.torch }] }).catch(function(){ SC.torch = false; });
+  }
+  function scDecodeFile(file){
+    scStopCam(); SC.view = 'looking'; SC.code = ''; scPaint();
+    var b = document.getElementById('scBody'); if (b) b.innerHTML = '<div class="sc-card"><div class="status" style="padding:2px 0"><span class="ai-spinner"></span>Reading the photo…</div></div>';
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){
+      var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      var c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      var tryNative = function(){
+        if (!('BarcodeDetector' in window)) return Promise.resolve(null);
+        try { return new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8'] }).detect(c).then(function(r){ var ok = (r || []).filter(function(x){ return scValid(x.rawValue); })[0]; return ok ? ok.rawValue : null; }, function(){ return null; }); } catch (e){ return Promise.resolve(null); }
+      };
+      tryNative().then(function(hit){
+        function go(h){ if (h){ SC.lastSeen = ''; scGot(h); } else { SC.view = 'err'; SC.err = 'No barcode found in that photo. Retake it closer and sharper with the bars filling the frame, or type the number below.'; scPaint(); } }
+        if (hit) return go(hit);
+        scLoadZX(function(ok){
+          var t = null;
+          if (ok){
+            try { var r = scDecodeCanvas(c); if (r) t = r.getText(); } catch (e){}
+            if (!t){
+              try {
+                var c2 = document.createElement('canvas'); c2.width = c.width; c2.height = Math.round(c.height * 0.4);
+                c2.getContext('2d').drawImage(c, 0, Math.round(c.height * 0.3), c.width, c2.height, 0, 0, c2.width, c2.height);
+                var r2 = scDecodeCanvas(c2); if (r2) t = r2.getText();
+              } catch (e){}
+            }
+          }
+          go(t);
+        });
+      });
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); SC.view = 'err'; SC.err = 'Could not open that photo.'; scPaint(); };
+    img.src = url;
+  }
+
+  /* --- lookup --- */
+  function scLookup(raw){
+    var d = scDigits(raw);
+    if (d.length < 8 || d.length > 14){ SC.view = 'err'; SC.err = 'That does not look like a product barcode number (8 to 14 digits).'; scPaint(); return; }
+    var my = ++SC.run;
+    SC.code = d; SC.names = []; SC.res = null; SC.view = 'looking'; scPaint();
+    fetch('/.netlify/functions/barcode-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: d }) })
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, status: r.status, j: j }; }, function(){ return { ok: false, status: r.status, j: null }; }); })
+      .then(function(x){
+        if (my !== SC.run) return;
+        if (x.status === 429){ SC.view = 'err'; SC.err = 'You have scanned a lot in a short time. Please wait a few minutes and try again, or search by name.'; scPaint(); return; }
+        if (!x.ok || !x.j || !x.j.results){ SC.view = 'err'; SC.err = 'Could not look this barcode up right now (' + x.status + '). Check your connection and try again, or search by name.'; scPaint(); return; }
+        var names = [];
+        x.j.results.forEach(function(r){ (r.matches || []).forEach(function(m){ names.push({ brand: m.brand || '', name: m.name || '' }); }); });
+        SC.names = names;
+        if (!names.length){ SC.view = 'unknown'; scPaint(); return; }
+        SC.view = 'matching'; scPaint();
+        scMatch(d, names, function(res){
+          if (my !== SC.run) return;
+          SC.res = res; SC.view = res.primary ? 'result' : 'none'; scPaint();
+        }, function(rel){
+          if (my !== SC.run || !SC.res) return;
+          SC.res.related = rel; scPaint();
+        });
+      }, function(){
+        if (my !== SC.run) return;
+        SC.view = 'err'; SC.err = 'Could not reach the lookup service. Check your connection and try again.'; scPaint();
+      });
+  }
+  function scOpen(id){
+    var c = null;
+    if (SC.res){ [SC.res.primary].concat(SC.res.others || [], SC.res.related || []).forEach(function(x){ if (x && x.id === id) c = x; }); }
+    scRemember(c || { id: id, brand: '', name: 'NIH label ' + id });
+    navigate('product', id);
+  }
+  function openScan(){
+    var cur = history[history.length - 1];
+    if (!cur || cur.screen !== 'scan') navigate('scan', null);
+    scStartCam();
+  }
+  function scAction(el){
+    if (el.hasAttribute('data-scan')){ openScan(); return; }
+    var oid = el.getAttribute('data-sc-open'); if (oid){ scOpen(oid); return; }
+    var a = el.getAttribute('data-sc');
+    if (a === 'start' || a === 'again'){ SC.code = ''; scStartCam(); }
+    else if (a === 'stop'){ scStopCam(); SC.view = 'idle'; scPaint(); }
+    else if (a === 'torch'){ scTorch(); }
+    else if (a === 'manual'){ var m = document.getElementById('scManual'); scLookup(m ? m.value : ''); }
+    else if (a === 'clear'){ try { localStorage.removeItem(SKEY); } catch (e){} scPaint(); }
+  }
+  content.addEventListener('change', function(e){
+    if (e.target && e.target.id === 'scPhoto'){ var f = e.target.files && e.target.files[0]; if (f) scDecodeFile(f); e.target.value = ''; }
+  });
+  content.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && e.target && e.target.id === 'scManual'){ e.preventDefault(); scLookup(e.target.value); }
+  });
+  document.getElementById('tabs').addEventListener('click', function(e){
+    if (e.target.closest('[data-scan]')) openScan();
+  });
+
+  /* ================= Voice search (the two search boxes only) =================
+     A microphone button inside the search box. Uses the browser's own speech recognition; if the browser has none, the button stays visible but dimmed and explains why when tapped. */
+  var VC_API = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var VC = { rec: null, on: false };
+  var VC_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"></path></svg>';
+  function vcMsg(t){ var m = document.getElementById('vcMsg'); if (!m) return; m.textContent = t || ''; m.hidden = !t; }
+  function vcPaint(on){ var b = document.getElementById('vcMic'); if (!b) return; b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  function vcStop(){ if (VC.rec){ var r = VC.rec; VC.rec = null; try { r.onresult = r.onerror = r.onend = null; r.abort(); } catch (e){} } VC.on = false; vcPaint(false); }
+  // spoken text -> a search phrase: drop punctuation and lead-in words, join "vitamin d 3" -> "vitamin d3"
+  function vcClean(t){
+    var s = String(t || '').toLowerCase().replace(/[.,!?;:"]+/g, ' ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/^(please\s+)?(search\s+for|search|look\s+up|look\s+for|find|show\s+me|check)\s+/, '');
+    s = s.replace(/\b([bdk])\s+(\d{1,2})\b/g, '$1$2').replace(/\bco\s?q\s?(10|ten)\b/g, 'coq10').replace(/\bq\s+10\b/g, 'q10');
+    return s.trim();
+  }
+  function vcStart(){
+    var inp = document.getElementById('searchInput'); if (!inp) return;
+    vcStop();
+    if (!VC_API){
+      var app = false; try { app = !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)); } catch (e){}
+      vcMsg(app ? 'This phone does not offer voice search inside the Home Screen app. Open SuppleFacts in Safari, or tap the search box and use the microphone key on your keyboard.'
+                : 'This browser does not offer voice search. Tap the search box and use the microphone key on your keyboard, or try Safari or Chrome.');
+      return;
+    }
+    var R;
+    try { R = new VC_API(); } catch (e){ vcMsg('Voice input is not available here. Use the microphone on your keyboard instead.'); return; }
+    R.lang = (navigator.language && /^[a-z]{2}(-|$)/i.test(navigator.language)) ? navigator.language : 'en-US';
+    R.interimResults = true; R.continuous = false; R.maxAlternatives = 1;
+    var heard = '', failed = false;
+    R.onresult = function(ev){
+      var txt = ''; for (var i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+      if (!txt && ev.results.length) for (var j = 0; j < ev.results.length; j++) txt += ev.results[j][0].transcript;
+      heard = vcClean(txt); if (document.getElementById('searchInput') === inp) inp.value = heard;
+    };
+    R.onerror = function(ev){
+      failed = true; var e = ev && ev.error;
+      vcMsg(e === 'not-allowed' || e === 'service-not-allowed' ? 'The microphone is blocked. Allow it in your phone’s settings, or use the microphone on your keyboard.'
+          : e === 'no-speech' ? 'I did not hear anything. Tap the microphone and try again.'
+          : e === 'audio-capture' ? 'No microphone was found.'
+          : e === 'network' ? 'Voice search needs an internet connection.'
+          : e === 'aborted' ? '' : 'Voice input did not work. Use the microphone on your keyboard instead.');
+    };
+    R.onend = function(){
+      var mine = VC.rec === R; VC.rec = null; VC.on = false; vcPaint(false);
+      if (!mine || document.getElementById('searchInput') !== inp) return;
+      if (heard){ vcMsg(''); var go = document.getElementById('searchGo'); if (go) go.click(); }
+      else if (!failed) vcMsg('I did not catch that. Tap the microphone and try again.');
+    };
+    VC.rec = R; VC.on = true; vcPaint(true); vcMsg('Listening… say a product, brand or ingredient');
+    try { R.start(); } catch (e){ VC.rec = null; VC.on = false; vcPaint(false); vcMsg('Voice input could not start. Use the microphone on your keyboard instead.'); }
+  }
+  function vcAttach(){
+    var inp = document.getElementById('searchInput'); if (!inp || document.getElementById('vcMic')) return;
+    var box = inp.closest ? inp.closest('.search-box') : null; if (!box) return;
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'vcMic'; b.className = 'vc-mic';
+    b.setAttribute('aria-label', 'Search by voice'); b.setAttribute('aria-pressed', 'false'); b.innerHTML = VC_MIC; if (!VC_API) b.classList.add('off');
+    box.appendChild(b);
+    var row = box.closest('.search-row');
+    if (row && row.parentNode && !document.getElementById('vcMsg')){ var m = document.createElement('div'); m.id = 'vcMsg'; m.className = 'vc-msg'; m.hidden = true; m.setAttribute('aria-live', 'polite'); row.parentNode.insertBefore(m, row.nextSibling); }
+    b.addEventListener('click', function(e){ e.preventDefault(); if (VC.on && VC.rec){ try { VC.rec.stop(); } catch (x){} } else vcStart(); });
+  }
+
+  /* ---- Welcome screen & deep link ---- */
+  var welcome = document.getElementById('welcome');
+  document.getElementById('exploreBtn').addEventListener('click', function(){ welcome.hidden = true; });
+  var wsb = document.getElementById('welcomeScan'); if (wsb) wsb.addEventListener('click', function(){ welcome.hidden = true; openScan(); });
+
+  render();
+  try {
+    var dq = new URLSearchParams(location.search).get('q');
+    if (dq && dq.trim()){ welcome.hidden = true; var sp = document.getElementById('sfSplash'); if (sp) sp.hidden = true; navigate('results', dq.trim()); }
+    else if (new URLSearchParams(location.search).get('scan')){ welcome.hidden = true; var sp3 = document.getElementById('sfSplash'); if (sp3) sp3.hidden = true; openScan(); }
+  } catch (e){}
+})();
+</script>
+
+<script>
+/* Makes SuppleFacts installable (Add to Home Screen / Play Store wrapper). The worker does no caching. */
+
+  /* ===== Install to Home Screen helper (added Oct 2026) ===== */
+  (function(){
+    var box = document.getElementById('sfInstall'); if (!box) return;
+    var msg = document.getElementById('sfInstallMsg'), go = document.getElementById('sfInstallGo'), pt = document.getElementById('sfInstallPt');
+    var KEY = 'sf_install_hide', deferred = null, want = false, wel = document.getElementById('welcome');
+    function standalone(){ return (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }
+    function hidden(){ try { var v = +localStorage.getItem(KEY) || 0; return v && (Date.now() - v) < 14 * 864e5; } catch (e){ return false; } }
+    function hide(remember){ box.hidden = true; if (remember){ try { localStorage.setItem(KEY, String(Date.now())); } catch (e){} } }
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var small = window.matchMedia && window.matchMedia('(max-width:500px)').matches;
+    var SHARE = '<svg class="shr" viewBox="0 0 24 24" fill="none" stroke="#1d6fe0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+    function show(){ if (standalone() || hidden()) return; box.hidden = false; }
+    // wait until the person is past the landing screen so the banner never covers the Check-a-supplement button
+    var tries = 0, iv = setInterval(function(){
+      tries++;
+      if (want && wel && wel.hidden){ clearInterval(iv); setTimeout(show, 1200); }
+      else if (tries > 400) clearInterval(iv);
+    }, 600);
+    document.getElementById('sfInstallX').addEventListener('click', function(){ hide(true); });
+    if (ios && !standalone()){
+      msg.innerHTML = 'Tap the Share button ' + SHARE + ' at the bottom of Safari, then choose <b style="display:inline;font:700 12.5px Inter,sans-serif">Add to Home Screen</b>.';
+      want = true;
+    }
+    window.addEventListener('beforeinstallprompt', function(e){
+      e.preventDefault(); deferred = e;
+      msg.textContent = 'Install it like an app — one tap, no App Store.'; go.hidden = false; want = true;
+    });
+    go.addEventListener('click', function(){
+      if (!deferred) return; deferred.prompt();
+      deferred.userChoice.then(function(){ deferred = null; hide(true); });
+    });
+    window.addEventListener('appinstalled', function(){ hide(true); });
+  })();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/supplefacts-sw.js', { scope: '/supplefacts.html' }).catch(function () {});
+  });
+}
+</script>
+</body></html>

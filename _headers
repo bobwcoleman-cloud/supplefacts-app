@@ -1,0 +1,7 @@
+# Security headers for every page and function on this site (Netlify reads this file at deploy time).
+# Deliberately conservative: nothing here can block the app's own scripts, fonts, images, camera or microphone.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(), payment=(), usb=()

@@ -1,0 +1,6 @@
+# SuppleFacts app: static files at the project root, plus two serverless functions.
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
