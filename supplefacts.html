@@ -624,6 +624,15 @@ button{font-family:inherit}
 .sc-meta{font-size:12px;color:var(--muted);margin:0 0 8px}
 .sc-note,.sc-warn,.sc-card p{font-size:13px;line-height:1.5;margin:6px 0;color:var(--fg)}
 .sc-warn{color:var(--danger);font-weight:600}
+.sc-card.caution{border-color:var(--gold);border-width:2px}
+.sc-kicker.caut{display:inline-block;background:var(--gold);color:#1a1a1a;padding:3px 9px;border-radius:999px}
+.sc-chk{list-style:none;margin:6px 0 4px;padding:0;font-size:12.5px;line-height:1.5;color:var(--fg)}
+.sc-chk li{padding-left:20px;position:relative;margin:2px 0}
+.sc-chk li::before{position:absolute;left:0;font-weight:800}
+.sc-chk li.y::before{content:"\2713";color:var(--accent-ink)}
+.sc-chk li.n::before{content:"!";color:var(--danger)}
+.sc-unconf{background:var(--surface-2);border:2px solid var(--gold);border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13px;line-height:1.45;color:var(--fg)}
+a.sc-btn{text-decoration:none}
 .sc-btn{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;margin:10px 0 0;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font:800 15px 'Inter',-apple-system,sans-serif}
 .sc-btn.alt{background:transparent;color:var(--accent-ink);border:2px solid var(--accent);padding:12px}
 .sc-btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
@@ -1508,6 +1517,7 @@ button{font-family:inherit}
       +   (p.upc ? '<div class="upc">UPC ' + esc(p.upc) + '</div>' : '')
       +   (p.off === 1 ? '<div class="upc" style="color:var(--danger);font-weight:600">NIH lists this label as off market' + (p.offDate ? ' since ' + esc(p.offDate) : '') + '; the product may have been updated since.</div>' : '')
       + '</div>'
+      + scUnconfHtml(id)
       + '<div class="panel"><h3>Supplement Facts</h3>' + (ingredientsHtml || '<div class="other-ing">No itemized ingredient data available for this product.</div>') + '</div>'
       + (p.other ? '<div class="panel"><h3>Other Ingredients</h3><div class="other-ing">' + esc(p.other) + '</div></div>' : '')
       + (p.claims.length ? '<div class="panel"><h3>Label Claims</h3><div class="claims">' + p.claims.map(function(c){ return '<span class="claim">' + esc(c) + '</span>'; }).join('') + '</div>'
@@ -1680,7 +1690,7 @@ button{font-family:inherit}
   function scRemember(c){
     if (!c || !c.id) return;
     var r = scList().filter(function(x){ return x.id !== c.id; });
-    r.unshift({ id: c.id, brand: c.brand || '', name: c.name || '', t: Date.now() });
+    r.unshift({ id: c.id, brand: c.brand || '', name: c.name || '', t: Date.now(), u: c.u ? 1 : 0, sn: c.sn || '' });
     try { localStorage.setItem(SKEY, JSON.stringify(r.slice(0, 20))); } catch (e){}
   }
 
@@ -1722,6 +1732,10 @@ button{font-family:inherit}
   var SC_STOP = { ct:1, count:1, counts:1, tablet:1, tablets:1, softgel:1, softgels:1, capsule:1, capsules:1, caplet:1, caplets:1, gummies:1, gummy:1, pack:1, of:1, the:1, and:1, 'with':1, 'for':1, supplement:1, dietary:1, bottle:1, pk:1, 'x':1,
     more:1, than:1, a:1, an:1, month:1, months:1, supply:1, packaging:1, may:1, vary:1, varies:1, value:1, size:1, bonus:1, 'new':1, free:1 };
   var SC_UNITS = { mg:1, mcg:1, ug:1, iu:1, g:1, ml:1, cfu:1 };
+  // chemical salt words: they appear on thousands of unrelated labels, so they never count as evidence of a match
+  var SC_FORM = { hydrochloride:1, hcl:1 };
+  // over-the-counter drug ingredients: NIH's supplement database (DSLD) does not list drugs
+  var SC_DRUG = /\bdrug facts\b|\b(diphenhydramine|doxylamine|chlorpheniramine|brompheniramine|loratadine|desloratadine|cetirizine|levocetirizine|fexofenadine|ibuprofen|acetaminophen|paracetamol|naproxen|aspirin|guaifenesin|dextromethorphan|pseudoephedrine|phenylephrine|famotidine|cimetidine|omeprazole|esomeprazole|lansoprazole|loperamide|bisacodyl|docusate|meclizine|dimenhydrinate|hydrocortisone|lidocaine|benzocaine|minoxidil|miconazole|clotrimazole)\b/i;
   var SC_CORP = { inc:1, llc:1, ltd:1, corp:1, corporation:1, co:1, company:1, com:1, services:1, service:1, usa:1, us:1, international:1, brands:1, group:1, holdings:1, products:1, enterprises:1, lp:1, plc:1 };
   function scNorm(t){
     return String(t || '').toLowerCase().replace(/µg/g, 'mcg').replace(/\([^)]*\)/g, ' ').replace(/(\d),(\d{3})/g, '$1$2').replace(/\b\d+\s*months?\b/g, ' ')
@@ -1741,7 +1755,7 @@ button{font-family:inherit}
   // core ignores parentheses (they are often pack or form notes); full keeps the words inside them (often the form: Citrate, Glycinate).
   var scGENERIC = { vitamin:1, vitamins:1, mineral:1, minerals:1, supplement:1, herbal:1, natural:1, organic:1, extract:1, complex:1, formula:1, support:1, multi:1 };
   function scParts(name, bTok){
-    var segs = String(name || '').replace(/[®™]/g, ' ').split(/\s[-–—]\s|[,;:|*•]/), core = [], full = [], k, c, f, real;
+    var segs = String(name || '').replace(/[®™]/g, ' ').replace(/(\d),(\d{3})/g, '$1$2').split(/\s[-–—]\s|[,;:|*•]/), core = [], full = [], k, c, f, real;
     for (k = 0; k < segs.length; k++){
       c = scToks(segs[k]).filter(function(w){ return bTok.indexOf(w) < 0; });
       f = scToks(String(segs[k]).replace(/[()]/g, ' ')).filter(function(w){ return bTok.indexOf(w) < 0; });
@@ -1781,6 +1795,9 @@ button{font-family:inherit}
     });
     wantStr = scUniq(wantStr);
     if (!best){ done({ primary: null, search: '' }); return; }
+    var drugM = null;
+    names.forEach(function(n){ var m = SC_DRUG.exec(n.brand + ' ' + n.name); if (m && !drugM) drugM = m; });
+    var drugTerm = drugM ? String(drugM[1] || '').toLowerCase() : '';
     var bTok = scToks(brand);
     var kw = best.t.filter(function(w){ return bTok.indexOf(w) < 0; });
     var parts = scParts(best.n.name, bTok), core = parts.core.length ? parts.core : kw, shortFull = parts.full.length ? parts.full : core;
@@ -1799,9 +1816,9 @@ button{font-family:inherit}
     if (guesses.length) plan.push(API + '/brand-products?q=' + encodeURIComponent(guesses[guesses.length - 1]) + '&size=1000');
     if (!q) plan = [];
 
-    var pool = {}, opened = {}, i = 0;
+    var pool = {}, opened = {}, brandIds = {}, i = 0;
     function fit(c){
-      var cb = scToks(c.brand), need = core.filter(function(w){ return cb.indexOf(w) < 0; });
+      var cb = scToks(c.brand), need = core.filter(function(w){ return cb.indexOf(w) < 0 && !SC_FORM[w]; });
       if (!need.length) return 0;
       var ct = scToks(c.name), hit = 0; need.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
       return hit / need.length;
@@ -1818,23 +1835,46 @@ button{font-family:inherit}
       var ct = scToks(c.name), hit = 0; ex.forEach(function(w){ if (ct.indexOf(w) >= 0) hit++; });
       return hit / ex.length;
     }
+    // the words that really identify the product: not numbers, units, generic words, salt words, or the brand
+    var distWords = core.filter(function(w){ return !/^\d+$/.test(w) && !SC_UNITS[w] && !scGENERIC[w] && !SC_FORM[w] && bTok.indexOf(w) < 0; });
+    // the product-name words only (no numbers, units or salt words): strength is checked separately, and DSLD names often leave it out
+    var nameWords = core.filter(function(w){ return !/^\d+$/.test(w) && !SC_UNITS[w] && !SC_FORM[w]; });
     function decorate(c){
       c.score = fit(c); c.extra = extraFit(c); c.close = closeOf(c);
       var cb = scToks(c.brand);
       c.brandOk = !cb.length || cb.every(function(w){ return allText[w]; });
       var cs = scStrengths(c.name);
       c.strOk = !wantStr.length || !cs.length || cs.some(function(s){ return wantStr.indexOf(s) >= 0; });
+      c.strChk = !!(wantStr.length && cs.length);
+      var nb = nameWords.filter(function(w){ return cb.indexOf(w) < 0; }), nct = scToks(c.name), nh = 0; nb.forEach(function(w){ if (nct.indexOf(w) >= 0) nh++; });
+      c.nscore = nb.length ? nh / nb.length : 0;
+      var ct = scToks(c.name); c.distHit = 0; distWords.forEach(function(w){ if (ct.indexOf(w) >= 0) c.distHit++; });
       return c;
+    }
+    // same manufacturer code: the first digits of a UPC identify the company that holds the barcode
+    function mfrOf(c){
+      function u12(d){ if (d.length === 13 && d.charAt(0) === '0') d = d.slice(1); return d.length === 12 ? d : ''; }
+      var a = u12(scDigits(code)), b = u12(scDigits(c.upc));
+      if (!a || !b) return null;
+      return a.slice(0, 6) === b.slice(0, 6);
+    }
+    // a label may be offered as a "possible match" only if it passes every one of these checks
+    function plausible(c){
+      if (!c.strOk || c.nscore < (c.mfr === true ? 0.5 : 0.66)) return false;       // same manufacturer code earns a little slack
+      if (distWords.length && c.distHit < 1) return false;
+      if (brand) return !!(scToks(c.brand).length && c.brandOk);          // the brand must agree. No exceptions.
+      return c.score >= 1 && c.distHit >= 2;                              // no brand known: the name alone must match very closely
     }
     function finish(){
       var all = Object.keys(pool).map(function(k){ return pool[k]; });
+      all.forEach(function(c){ c.mfr = mfrOf(c); });
       var exact = all.filter(function(c){ return c.exact; })[0];
       var hidden = all.filter(function(c){ return !c.strOk && c !== exact; }).length;
-      var list = all.filter(function(c){ return c.brandOk && c.strOk && c.score >= 0.5; }).sort(scCmp);
-      if (!list.length) list = all.filter(function(c){ return c.strOk && c.score >= 0.5; }).sort(scCmp);
+      var list = all.filter(plausible).sort(function(a, b){ return ((b.mfr === true ? 1 : 0) - (a.mfr === true ? 1 : 0)) || scCmp(a, b); });
       var primary = exact || list[0] || null;
-      var others = list.filter(function(c){ return c !== primary; }).slice(0, 3);
-      done({ primary: primary, exact: !!exact, others: others, hidden: hidden, search: searchText, name: best.n });
+      var others = exact ? [] : list.filter(function(c){ return c !== primary; }).slice(0, 3);
+      done({ primary: primary, exact: !!exact, others: others, hidden: hidden, search: searchText, name: best.n, brand: brand, brandKnown: !!brand,
+             brandSeen: Object.keys(brandIds).length, drug: !!drugM && !exact, drugTerm: drugTerm });
       if (exact && onRelated) scRelated(exact, onRelated);
     }
     function step(){
@@ -1842,6 +1882,7 @@ button{font-family:inherit}
       var url = plan[i++];
       scGet(url).then(function(j){
         var cands = scHits(j).map(scSrc).filter(function(c){ return c.id; }).map(decorate);
+        cands.forEach(function(c){ var cb = scToks(c.brand); if (bTok.length && cb.length && bTok.every(function(w){ return cb.indexOf(w) >= 0; })) brandIds[c.id] = 1; });
         var todo = cands.filter(function(c){ return c.score >= 0.5 && !opened[c.id]; })
           .sort(function(a, b){ return ((b.brandOk ? 2 : 0) + (b.strOk ? 1 : 0)) - ((a.brandOk ? 2 : 0) + (a.strOk ? 1 : 0)) || b.score - a.score || b.close - a.close || b.extra - a.extra; }).slice(0, 10);
         // nothing fit the name well: still open the first few labels of the right brand, because the UPC is the real proof
@@ -1855,7 +1896,15 @@ button{font-family:inherit}
         });
       }).catch(function(){ step(); });
     }
-    step();
+    // NIH's own UPC search already found a label with this number: open it directly, it is the proof
+    var direct = names.filter(function(n){ return n.dsldId; })[0];
+    if (direct){
+      scGet(API + '/label/' + encodeURIComponent(direct.dsldId)).then(function(l){
+        var c = scMeta(decorate({ id: String(l.id || direct.dsldId), brand: l.brandName || '', name: l.fullName || '', score: 0 }), l);
+        c.exact = scSame(l.upcSku, code);
+        if (c.exact){ pool[c.id] = c; opened[c.id] = 1; finish(); } else step();
+      }, function(){ step(); });
+    } else step();
   }
   // other printings NIH links to the same product ("image difference, same product")
   function scRelated(ex, cb){
@@ -1892,23 +1941,44 @@ button{font-family:inherit}
     return nm.length > 70 ? nm.slice(0, 70).replace(/\s+\S*$/, '') + '\u2026' : nm;
   }
   function scResultHtml(){
-    var r = SC.res, p = r.primary;
+    var r = SC.res, p = r.primary, ex = r.exact;
     var nm = (p.brand ? p.brand + ' — ' : '') + p.name;
     var warn = (p.off === 1) ? '<p class="sc-warn">NIH lists this label as off market' + (p.offDate ? ' since ' + esc(p.offDate) : '') + ', so the product may have been reformulated since. Compare the ingredient list with the bottle in your hand.</p>' : '';
-    var note = r.exact ? '<p class="sc-note">The barcode matches this NIH label.</p>' : '<p class="sc-note">NIH lists a product with this name, possibly in a different package size. Compare the ingredient list with the bottle in your hand.</p>';
-    var html = '<div class="sc-card ok' + (p.off === 1 ? ' warn' : '') + '"><div class="sc-kicker">' + (r.exact ? 'Matched by barcode' : 'Likely match') + '</div>'
-      + '<div class="sc-name">' + esc(nm) + '</div>'
-      + (scStatus(p) ? '<div class="sc-meta">' + esc(scStatus(p)) + '</div>' : '')
-      + note + warn
-      + '<button class="sc-btn" data-sc-open="' + esc(p.id) + '">Show ingredients &amp; evidence ›</button>'
-      + '<button class="sc-btn alt" data-sc="again">' + SCAN_ICON.replace('<svg ', '<svg style="width:18px;height:18px;vertical-align:-3px;margin-right:6px" ') + 'Scan another product</button></div>';
-    var more = (r.exact ? (r.related || []) : r.others) || [];
+    var html;
+    if (ex){
+      html = '<div class="sc-card ok' + (p.off === 1 ? ' warn' : '') + '"><div class="sc-kicker">Matched by barcode</div>'
+        + '<div class="sc-name">' + esc(nm) + '</div>'
+        + (scStatus(p) ? '<div class="sc-meta">' + esc(scStatus(p)) + '</div>' : '')
+        + '<p class="sc-note">The barcode matches this NIH label.</p>' + warn
+        + '<button class="sc-btn" data-sc-open="' + esc(p.id) + '">Show ingredients &amp; evidence ›</button>';
+    } else {
+      var chk = '<li class="y">' + (r.brandKnown ? 'Brand matches: ' + esc(p.brand) : 'Brand could not be checked (the barcode databases gave none)') + '</li>'
+        + '<li class="y">Product name is a close match</li>'
+        + (p.strChk ? '<li class="y">Strength matches</li>' : '')
+        + (p.mfr === true ? '<li class="y">Same manufacturer code in the barcode</li>' : (p.mfr === false ? '<li class="n">The barcode has a different manufacturer code than this label</li>' : ''))
+        + '<li class="n">NIH has no record of this barcode</li>';
+      html = '<div class="sc-card caution"><div class="sc-kicker caut">Possible match · not confirmed</div>'
+        + '<div class="sc-name">' + esc(nm) + '</div>'
+        + (scStatus(p) ? '<div class="sc-meta">' + esc(scStatus(p)) + '</div>' : '')
+        + '<div class="sc-meta">You scanned: ' + esc(scNameLabel(r.name)) + '</div>'
+        + '<ul class="sc-chk">' + chk + '</ul>'
+        + '<p class="sc-note"><b>This is a guess from names, not proof.</b> It may be a different product or package. Check the brand, product name and ingredients against your bottle before relying on anything here.</p>' + warn
+        + '<button class="sc-btn alt" data-sc-open="' + esc(p.id) + '">Check this label against my bottle ›</button>';
+    }
+    html += '<button class="sc-btn alt" data-sc="again">' + SCAN_ICON.replace('<svg ', '<svg style="width:18px;height:18px;vertical-align:-3px;margin-right:6px" ') + 'Scan another product</button></div>';
+    var more = (ex ? (r.related || []) : r.others) || [];
     if (more.length){
-      html += '<div class="sc-sub">' + (r.exact ? 'Other NIH labels for this product' : 'Other close NIH labels') + '</div>'
+      html += '<div class="sc-sub">' + (ex ? 'Other NIH labels for this product' : 'Other possible labels') + '</div>'
         + more.map(function(c){ return '<button class="sc-alt" data-sc-open="' + esc(c.id) + '"><b>' + esc((c.brand ? c.brand + ' — ' : '') + c.name) + '</b><span>' + esc(scStatus(c)) + '</span></button>'; }).join('');
     }
     html += '<button class="sc-alt" style="margin-top:6px" data-go="results:' + esc(r.search) + '"><b>Not the right one? Search NIH for “' + esc(r.search) + '”</b></button>';
     return html;
+  }
+  // shown on a label screen that was reached from an unconfirmed (name-only) scan result
+  function scUnconfHtml(id){
+    var x = scList().filter(function(y){ return String(y.id) === String(id) && y.u; })[0];
+    if (!x) return '';
+    return '<div class="sc-unconf"><b>Not confirmed by barcode.</b> ' + (x.sn ? 'You scanned “' + esc(x.sn) + '”. ' : '') + 'NIH has no record of that barcode, so this is only the closest name match. Compare the brand and ingredients with your bottle before relying on it.</div>';
   }
   function scBodyHtml(){
     if (SC.cam) return '<div class="status" style="padding:4px 2px">Looking for a barcode…</div>';
@@ -1916,10 +1986,17 @@ button{font-family:inherit}
     if (SC.view === 'looking') return '<div class="sc-card"><div class="status" style="padding:2px 0"><span class="ai-spinner"></span>Read ' + esc(shown) + ' — looking up the product…</div></div>';
     if (SC.view === 'matching') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">' + esc(scNameLabel(SC.names[0])) + '</div><div class="status" style="padding:2px 0"><span class="ai-spinner"></span>Matching it to NIH labels…</div></div>';
     if (SC.view === 'result' && SC.res && SC.res.primary) return scResultHtml();
+    if (SC.view === 'drug'){
+      var dr = SC.res || {}, dq = dr.drugTerm || scNameLabel(dr.name);
+      return '<div class="sc-card caution"><div class="sc-kicker caut">Looks like a drug, not a supplement</div><div class="sc-name">' + esc(scNameLabel(dr.name) || 'This product') + '</div>'
+        + '<p>This looks like an over-the-counter drug. NIH’s supplement database (DSLD) does not list drugs, so there is no label to show here, and SuppleFacts will not guess one.</p>'
+        + '<a class="sc-btn" href="https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&amp;query=' + encodeURIComponent(dq) + '" target="_blank" rel="noopener">Look it up on DailyMed (NIH drug labels) ›</a>'
+        + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    }
     if (SC.view === 'none'){
-      var s = SC.res && SC.res.search;
-      return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">' + esc(scNameLabel(SC.names[0]) || 'Product not recognised') + '</div>'
-        + '<p>The NIH database does not seem to have a label for this product. Not every supplement is listed there.</p>'
+      var s = SC.res && SC.res.search, rn = SC.res && SC.res.name, bs = SC.res && SC.res.brandSeen, bn = SC.res && ((SC.res.name && SC.res.name.brand) || SC.res.brand);
+      return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">' + esc(scNameLabel(rn || SC.names[0]) || 'Product not recognised') + '</div>'
+        + '<p><b>No NIH label found for this exact product.</b>' + (bs ? ' NIH does list other ' + esc(bn) + ' products, but none that matches this one.' : '') + ' Not every supplement is in the NIH database, and SuppleFacts shows a label only when it is sure enough.</p>'
         + (s ? '<button class="sc-btn" data-go="results:' + esc(s) + '">Search NIH for “' + esc(s) + '”</button>' : '')
         + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     }
@@ -1930,7 +2007,7 @@ button{font-family:inherit}
   function scRecentHtml(){
     var l = scList(); if (!l.length) return '';
     return '<div class="sc-sub">Recently scanned on this phone</div>'
-      + l.slice(0, 8).map(function(x){ return '<button class="sc-alt" data-go="product:' + esc(x.id) + '"><b>' + esc((x.brand ? x.brand + ' — ' : '') + x.name) + '</b><span>' + esc(new Date(x.t).toLocaleDateString()) + '</span></button>'; }).join('')
+      + l.slice(0, 8).map(function(x){ return '<button class="sc-alt" data-go="product:' + esc(x.id) + '"><b>' + esc((x.brand ? x.brand + ' — ' : '') + x.name) + '</b><span>' + esc(new Date(x.t).toLocaleDateString()) + (x.u ? ' · name match only, not confirmed' : '') + '</span></button>'; }).join('')
       + '<button class="sc-clear" data-sc="clear">Clear this list</button>';
   }
   function scPaint(){
@@ -2117,13 +2194,13 @@ button{font-family:inherit}
         if (x.status === 429){ SC.view = 'err'; SC.err = 'You have scanned a lot in a short time. Please wait a few minutes and try again, or search by name.'; scPaint(); return; }
         if (!x.ok || !x.j || !x.j.results){ SC.view = 'err'; SC.err = 'Could not look this barcode up right now (' + x.status + '). Check your connection and try again, or search by name.'; scPaint(); return; }
         var names = [];
-        x.j.results.forEach(function(r){ (r.matches || []).forEach(function(m){ names.push({ brand: m.brand || '', name: m.name || '' }); }); });
+        x.j.results.forEach(function(r){ (r.matches || []).forEach(function(m){ names.push({ brand: m.brand || '', name: m.name || '', dsldId: (r.source === 'dsld' && m.id) ? String(m.id) : '' }); }); });
         SC.names = names;
         if (!names.length){ SC.view = 'unknown'; scPaint(); return; }
         SC.view = 'matching'; scPaint();
         scMatch(d, names, function(res){
           if (my !== SC.run) return;
-          SC.res = res; SC.view = res.primary ? 'result' : 'none'; scPaint();
+          SC.res = res; SC.view = res.drug ? 'drug' : (res.primary ? 'result' : 'none'); scPaint();
         }, function(rel){
           if (my !== SC.run || !SC.res) return;
           SC.res.related = rel; scPaint();
@@ -2136,6 +2213,7 @@ button{font-family:inherit}
   function scOpen(id){
     var c = null;
     if (SC.res){ [SC.res.primary].concat(SC.res.others || [], SC.res.related || []).forEach(function(x){ if (x && x.id === id) c = x; }); }
+    if (c && SC.res && !SC.res.exact){ c.u = 1; c.sn = scNameLabel(SC.res.name); }
     scRemember(c || { id: id, brand: '', name: 'NIH label ' + id });
     navigate('product', id);
   }
