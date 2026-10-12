@@ -27,9 +27,17 @@ const CACHE_VERSION = 'v3';
 
 // Added to the end of a summary when any ingredient had no NIH guide behind it. It is added by the
 // server (not left to the model) so the wording is always friendly and always present.
-const MISSING_POINTER = 'Some ingredients on this label fall outside the NIH sources used for this summary. ' +
-  'That doesn\u2019t mean nothing is known about them. Tap Investigate the Evidence below to search the research ' +
-  'for every ingredient on this label.';
+const missingNote = (names) => {
+  const shown = names.slice(0, 5);
+  const more = names.length - shown.length;
+  const list = shown.length > 1
+    ? shown.slice(0, -1).join(', ') + (more ? ', ' : ' and ') + shown[shown.length - 1]
+    : shown[0];
+  return 'The NIH sources used for this summary do not cover ' + list + (more ? ', and ' + more + ' more' : '') + '. ' +
+    'That is a limit of these sources, not a sign that ' + (names.length > 1 ? 'these ingredients are' : 'this ingredient is') +
+    ' ineffective or unsafe, and it doesn\u2019t mean nothing is known about ' + (names.length > 1 ? 'them' : 'it') + '. ' +
+    'Tap Investigate the Evidence below to search the research for every ingredient on this label.';
+};
 
 const json = (statusCode, obj) => ({
   statusCode,
@@ -99,20 +107,18 @@ export const handler = async (event) => {
   if (missing.length) {
     lines.push('\nIngredients with no NIH guide in this app: ' +
       missing.slice(0, 12).map((i) => clip(i.name, 80)).join(', ') + '.');
-    lines.push('For those ingredients, say plainly and calmly that the NIH sources used for this summary do not cover them. ' +
-      'Make clear this is a limit of these sources: it is not evidence that nothing is known, and it is not a sign that the ingredient ' +
-      'is ineffective or unsafe. Never say the information is "unavailable" or "not found", and never suggest the reader is out of options. ' +
-      'Do not write any pointer to an "Investigate the Evidence" search yourself; one is added automatically after your summary.');
+    lines.push('Do not mention these ingredients, or any gap in the sources, anywhere in your summary. ' +
+      'A note about them, followed by a general-information line, is added automatically after your summary, so do not write a closing disclaimer yourself. Summarize only the ingredients that have NIH material above.');
   }
   if (missing.length && missing.length === ings.length) {
     // Nothing from the NIH to summarize: stay with what the label itself says, keep it short and kind
     lines.push('\nWrite one short, friendly summary of 70–110 words. State what the label lists (ingredient names and amounts exactly as given), ' +
-      'explain the limit described above, and end with one short sentence noting this is general information, not medical advice.');
+      'without describing or evaluating them. Do not add a disclaimer; one is added automatically.');
   } else {
     lines.push('\nWrite one consumer-friendly summary, ' + (ings.length > 3 ? '180–260' : '120–180') +
       ' words, covering what this product’s active ingredient(s) are for and what the evidence actually supports. ' +
-      'Stay neutral; do not overstate benefit. End with one short sentence noting this is general information ' +
-      'drawn from NIH source material, not medical advice.');
+      'Stay neutral; do not overstate benefit.' + (missing.length ? '' :
+      ' End with one short sentence noting this is general information drawn from NIH source material, not medical advice.'));
   }
 
   const promptText = lines.join('\n');
@@ -163,7 +169,12 @@ export const handler = async (event) => {
     }
     let text = plain((data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join(''));
     if (!text) return json(502, { error: 'empty_response' });
-    if (missing.length) text = text + '\n\n' + MISSING_POINTER;
+    if (missing.length) {
+      text = text + '\n\n' + missingNote(missing.map((i) => clip(i.name, 80))) + '\n\n' +
+        (missing.length === ings.length
+          ? 'This is general information, not medical advice.'
+          : 'This is general information drawn from NIH source material, not medical advice.');
+    }
     if (store && ckey) {
       try { await store.setJSON(ckey, { text, savedAt: Date.now() }); }
       catch (e) { console.warn('cache write failed:', e && e.message); }
