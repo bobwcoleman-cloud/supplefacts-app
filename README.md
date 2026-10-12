@@ -25,3 +25,6 @@ Never put keys in the code or in this repo.
 
 ## Not medical advice
 SuppleFacts is for education. Label data is manufacturer-reported.
+
+## QR codes (one rule)
+Every SuppleFacts QR code must encode only `https://supplefacts.brokenpromiseshealthcare.org/` (the bare address). The master images are in `qr/` (`SuppleFacts-QR-master.png`, `.svg`). The bare address forwards to the app through `_redirects`, so if the app page is ever renamed or moved, change that one line and every printed code, handout and slide keeps working. Never make a QR for a page address, a Netlify preview address, or the website address. Keep QR images in this repo only; the website links to the app and never carries its own copy.
