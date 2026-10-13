@@ -1057,7 +1057,7 @@ a.sc-btn{text-decoration:none}
       if (keepOther && product.other) prompt += '\nOther Ingredients: ' + product.other + '\n';
       if (keepClaims && product.claims.length) prompt += '\nLabel Claims: ' + product.claims.join(' | ') + '\n';
       prompt += '\n=== ANALYSIS REQUESTED ===\n';
-      prompt += 'Please provide an evidence-based analysis of this product\'s ingredients. For each ingredient, explain:\n';
+      prompt += 'Please provide an evidence-based analysis of this product\'s ingredients. Begin with a section titled "Bottom Line": two to four sentences giving your overall assessment of this product as a whole, then support it with the details. For each ingredient, explain:\n';
       prompt += '1. What it is\n';
       prompt += '2. What the scientific evidence shows (cite specific studies/evidence where available)\n';
       prompt += '3. Safety concerns and potential interactions\n';
@@ -1103,7 +1103,7 @@ a.sc-btn{text-decoration:none}
       prompt += 'Other ingredients in this product: ' + names + '\n';
     }
     prompt += '\n=== ANALYSIS REQUESTED ===\n';
-    prompt += 'Please provide an evidence-based analysis of this ingredient at the amount shown. Explain:\n';
+    prompt += 'Please provide an evidence-based analysis of this ingredient at the amount shown. Begin with a section titled "Bottom Line": two to four sentences giving your overall assessment of this ingredient at this amount, then support it with the details. Explain:\n';
     prompt += '1. What it is\n';
     prompt += '2. What the scientific evidence shows (cite specific studies/evidence where available)\n';
     prompt += '3. Safety concerns and potential interactions, including with the other ingredients listed\n';
@@ -1304,11 +1304,11 @@ a.sc-btn{text-decoration:none}
       + item(1, 'Searching for a supplement', '<p>Type a product name, brand or ingredient in the search box and tap Go. Or skip typing: tap any ingredient or brand tile on the Home screen to pull up its labels from the NIH database.</p><p>Swipe the rows sideways to see more, or tap See All to view them in a grid.</p>', true)
       + item(2, 'Reading a supplement label', '<ul><li><b>Supplement Facts:</b> every active ingredient, its amount per serving, and the serving size.</li><li><b>Other ingredients:</b> fillers, binders, colors and flavors.</li><li><b>Proprietary blends:</b> a total weight with no per-ingredient amounts. You cannot tell how much of each ingredient you are getting.</li><li><b>% Daily Value:</b> where none is listed, no official daily target exists.</li></ul>')
       + item(3, 'The AI Ingredient Summary', '<p>For each label, tap Generate summary to get a plain-language summary of what the main ingredients are, what the research says, and what to watch for.</p><p>It is a starting point written by AI, not a verdict. Check anything important against the studies it points to.</p>')
-      + item(4, 'Going deeper with the research prompt', '<p>Tap Investigate the Evidence to send the full label and a ready-made research prompt to the Product Lookup page. There you choose Claude, ChatGPT or Perplexity to:</p><ul><li>check whether the doses match what studies used</li><li>compare the published evidence for each ingredient</li><li>look for interactions and safety concerns</li></ul>')
+      + item(4, 'Going deeper with the research prompt', '<p>Tap Investigate the Evidence to send the full label and a ready-made research prompt to the Product Lookup page. There you choose Perplexity, ChatGPT or Claude to:</p><ul><li>check whether the doses match what studies used</li><li>compare the published evidence for each ingredient</li><li>look for interactions and safety concerns</li></ul>')
       + item(5, 'Where the information comes from', '<p>Label data comes live from the NIH Office of Dietary Supplements Dietary Supplement Label Database. Ingredient guides are curated from NIH fact sheets and published research. Brand names are the names recorded on each label.</p>')
       + item(6, 'Put SuppleFacts on your iPhone', '<p><b>iPhone (Safari):</b> open this page, tap the Share button at the bottom of the screen, scroll down and tap <b>Add to Home Screen</b>, then tap <b>Add</b>. The SuppleFacts icon appears on your Home Screen and opens full-screen, like an app.</p><p><b>Android (Chrome):</b> tap the ⋮ menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</p><p>Tip: if the icon doesn’t appear on iPhone, make sure you are in Safari, not inside another app’s browser.</p>')
       + '<div class="warn"><b>Important:</b> SuppleFacts is for education, not medical advice. Talk with your doctor or pharmacist before starting a supplement, especially if you take prescription medicines, are pregnant, or have a medical condition.</div>'
-      + '<div class="investigate-panel"><h3>Full illustrated guide</h3><div class="investigate-text">Step-by-step instructions for both evidence buttons, plus how to use Claude, ChatGPT and Perplexity on your phone.</div>'
+      + '<div class="investigate-panel"><h3>Full illustrated guide</h3><div class="investigate-text">Step-by-step instructions for both evidence buttons, plus how to use Perplexity, ChatGPT and Claude on your phone.</div>'
       +   '<a class="investigate-btn" href="/supplefacts-guide.pdf" target="_blank" rel="noopener">📄 Open the User’s Guide (PDF)</a></div>'
       + '</div>';
   }
