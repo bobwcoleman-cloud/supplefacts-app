@@ -542,6 +542,10 @@ button{font-family:inherit}
 .nores{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
 .nores h4{font:700 14px 'Lora',Georgia,serif;color:var(--fg);margin:0 0 4px}
 .nores p{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+/* AI-NAME-SEARCH start */
+.ai-alt{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.ai-alt .ai-note{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+/* AI-NAME-SEARCH end */
 .guide h2.gh{font-family:'Lora',Georgia,serif;font-size:21px;margin:0 0 2px;letter-spacing:-.3px}
 .guide .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.4}
 .guide details{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -1076,6 +1080,34 @@ a.sc-btn{text-decoration:none}
   }
 
 
+  /* AI-NAME-SEARCH start -- "Research with AI instead" for products with no NIH label.
+     To switch it off: set AI_NAME_SEARCH = false. To remove it: delete every block marked AI-NAME-SEARCH. */
+  var AI_NAME_SEARCH = true;
+  function buildNameAiUrl(name, code){
+    name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 150);
+    var p = 'Research this dietary supplement product. I have only its name' + (code ? ' and barcode' : '') + ', not an NIH label.\n\n';
+    p += '=== PRODUCT ===\n';
+    p += 'Name: ' + (name || '(not known - identify it from the barcode)') + '\n';
+    if (code) p += 'Barcode (UPC): ' + code + '\n';
+    p += '\n=== HOW TO ANSWER ===\n';
+    p += '1. First find this product\'s current Supplement Facts panel on the maker\'s own website or a major retailer. List the ingredients and the amount per serving exactly as printed, and name the source you used.\n';
+    p += '2. If you cannot find this exact product, say so plainly. Do not guess ingredients or amounts, and do not swap in a similar product without telling me.\n';
+    p += '3. Then begin with a section titled "Bottom Line": two to four sentences giving your overall assessment of this product as a whole, then support it with the details. For each ingredient, explain:\n';
+    p += '   a. What it is\n';
+    p += '   b. What the scientific evidence shows at the amount in this product (cite specific studies where available)\n';
+    p += '   c. Safety concerns and potential interactions\n';
+    p += '   d. Whether the claimed benefits are supported by evidence\n\n';
+    p += 'Be neutral and fact-based. Note when evidence is weak, missing, or contradictory. Highlight any concerns with ingredient interactions or excessive doses.';
+    return SITE + '/product-lookup?mode=research&prompt=' + encodeURIComponent(p);
+  }
+  function aiNameOpen(name, code){
+    name = String(name || '').trim();
+    if (name.length < 3 && !code) return false;
+    window.open(buildNameAiUrl(name, code), '_blank');
+    return true;
+  }
+  /* AI-NAME-SEARCH end */
+
   /* ---- In-app ingredient screen (reached from "Ask AI ›" on a label row) ---- */
   function findIngredient(product, name){
     var hit = null;
@@ -1378,7 +1410,9 @@ a.sc-btn{text-decoration:none}
     var first = query.split(/\s+/)[0], btns = '';
     if (stem && stem.toLowerCase() !== query.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(stem) + '">Drop extra words: ' + esc(stem) + '</button>';
     if (query.indexOf(' ') > -1 && first.length >= 3 && first.toLowerCase() !== stem.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(first) + '">Search just “' + esc(first) + '”</button>';
-    return '<div class="nores"><h4>Nothing found for “' + esc(query) + '”</h4><p>The NIH uses the wording printed on the bottle. Try a shorter or more general search' + (btns ? ', or one of these:' : '.') + '</p>' + (btns ? '<div class="chip-row">' + btns + '</div>' : '') + '</div>';
+    return '<div class="nores"><h4>Nothing found for “' + esc(query) + '”</h4><p>The NIH uses the wording printed on the bottle. Try a shorter or more general search' + (btns ? ', or one of these:' : '.') + '</p>' + (btns ? '<div class="chip-row">' + btns + '</div>' : '')
+      + (AI_NAME_SEARCH && query.trim().length >= 3 ? '<div class="ai-alt"><button class="chip" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI instead</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */
+      + '</div>';
   }
   function markTab(){
     var top = history[0] ? history[0].screen : 'home';
@@ -1680,6 +1714,10 @@ a.sc-btn{text-decoration:none}
       navigate(parts[0], parts.slice(1).join(':'));
       return;
     }
+    /* AI-NAME-SEARCH start */
+    var aiEl = e.target.closest('[data-ai-name]');
+    if (aiEl){ aiNameOpen(aiEl.getAttribute('data-ai-name'), aiEl.getAttribute('data-ai-code') || ''); return; }
+    /* AI-NAME-SEARCH end */
     var askEl = e.target.closest('[data-ask-ai]');
     if (askEl){
       var here = history[history.length - 1];
@@ -2130,9 +2168,10 @@ a.sc-btn{text-decoration:none}
         + '<p><b>No NIH label found for this exact product.</b>' + (bs ? ' NIH does list other ' + esc(bn) + ' products, but none that matches this one.' : '') + ' Not every supplement is in the NIH database, and SuppleFacts shows a label only when it is sure enough.</p>'
         + (SC.nih === 'unsure' ? '<p class="sc-warn">NIH did not answer our barcode check just now (it limits how fast it can be asked), so this result may be incomplete. Wait a minute and scan again.</p>' : '')
         + (s ? '<button class="sc-btn" data-go="results:' + esc(s) + '">Search NIH for “' + esc(s) + '”</button>' : '')
+        + (AI_NAME_SEARCH ? '<div class="ai-alt"><button class="sc-btn alt" data-ai-name="' + esc(scNameLabel(rn || SC.names[0])) + '" data-ai-code="' + esc(SC.code) + '">Research this product with AI instead</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */
         + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     }
-    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="sc-sub" style="margin-top:10px">Or search NIH by the name on the bottle</div><div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div><button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="sc-sub" style="margin-top:10px">Or search NIH by the name on the bottle</div><div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>' + (AI_NAME_SEARCH ? '<div class="ai-alt"><button class="sc-btn alt" data-sc="ainame">Research it with AI instead</button><p class="ai-note">Type the name above first. AI research, not an NIH label; check it against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     if (SC.view === 'err') return '<div class="sc-card warn"><div class="sc-kicker">Problem</div><p>' + esc(SC.err) + '</p><button class="sc-btn" data-sc="start">Try the camera again</button></div>';
     return '<div class="sc-card"><div class="sc-name">Scan a supplement barcode</div><p>Check any bottle on the shelf before you buy it. Hold the bottle about a hand-width from the camera with the bars flat inside the box.</p><button class="sc-btn" data-sc="start">' + SCAN_ICON.replace('<svg ', '<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:7px" ') + 'Start camera</button></div>';
   }
@@ -2386,6 +2425,7 @@ a.sc-btn{text-decoration:none}
     else if (a === 'torch'){ scTorch(); }
     else if (a === 'manual'){ var m = document.getElementById('scManual'); scLookup(m ? m.value : ''); }
     else if (a === 'name'){ scNameSearch(); }
+    else if (a === 'ainame'){ var an = document.getElementById('scName'), av = an ? an.value.trim() : ''; if (av.length < 3){ if (an) an.focus(); } else aiNameOpen(av, SC.code); } /* AI-NAME-SEARCH */
     else if (a === 'clear'){ try { localStorage.removeItem(SKEY); } catch (e){} scPaint(); }
   }
   content.addEventListener('change', function(e){
