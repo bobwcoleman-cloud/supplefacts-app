@@ -545,6 +545,8 @@ button{font-family:inherit}
 /* AI-NAME-SEARCH start */
 .ai-alt{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
 .ai-alt .ai-note{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.sc-two{display:flex;gap:8px;margin:0 0 8px}
+.sc-two .sc-btn{flex:1;min-width:0;margin:0;padding:13px 6px;font-size:14px}
 /* AI-NAME-SEARCH end */
 .guide h2.gh{font-family:'Lora',Georgia,serif;font-size:21px;margin:0 0 2px;letter-spacing:-.3px}
 .guide .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.4}
@@ -1414,6 +1416,16 @@ a.sc-btn{text-decoration:none}
       + (AI_NAME_SEARCH && query.trim().length >= 3 ? '<div class="ai-alt"><button class="chip" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI instead</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */
       + '</div>';
   }
+  /* AI-NAME-SEARCH start -- AI link on NIH result lists (top: weak "mentions the words" list; bottom: every list) */
+  function aiResultHtml(query, where){
+    query = String(query || '').trim();
+    if (!AI_NAME_SEARCH || query.length < 3) return '';
+    var q = esc(query), d = esc(query.length > 40 ? query.slice(0, 40) + '…' : query);
+    var b = '<button class="chip" data-ai-name="' + q + '">Research “' + d + '” with AI instead</button>';
+    if (where === 'top') return '<div class="chip-row" style="margin:0 0 10px">' + b + '</div>';
+    return '<div class="ai-alt"><p class="ai-note" style="margin:0 0 6px">Not the right product?</p>' + b + '<p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>';
+  }
+  /* AI-NAME-SEARCH end */
   function markTab(){
     var top = history[0] ? history[0].screen : 'home';
     if (top !== 'search' && top !== 'guide') top = 'home';
@@ -1464,9 +1476,10 @@ a.sc-btn{text-decoration:none}
       + '</div>';
   }
 
-  function nihError(retryAttr, detail){
+  function nihError(retryAttr, detail, aiQuery){
     return '<div class="err-box"><strong>Couldn’t reach the NIH database right now.</strong><br>' + esc(detail || '')
       + '<br><button ' + retryAttr + '>Try again</button>'
+      + (AI_NAME_SEARCH && aiQuery && String(aiQuery).trim().length >= 3 ? '<button type="button" data-ai-name="' + esc(String(aiQuery).trim()) + '">Research with AI instead</button>' : '') /* AI-NAME-SEARCH */
       + '<a href="https://dsld.od.nih.gov/" target="_blank" rel="noopener">Search the NIH database directly →</a></div>';
   }
 
@@ -1552,12 +1565,12 @@ a.sc-btn{text-decoration:none}
       if (still()) showProducts(document.getElementById('prodResults'), list, query);
     } catch (e){
       console.error('DSLD search failed', e);
-      if (still()) document.getElementById('prodResults').innerHTML = nihError('data-retry-search="' + esc(query) + '"', e.message);
+      if (still()) document.getElementById('prodResults').innerHTML = nihError('data-retry-search="' + esc(query) + '"', e.message, query);
     }
   }
   function showProducts(box, list, query){
     box.innerHTML = list.length
-      ? ((list.brandBtn ? '<div class="chip-row" style="margin-bottom:10px">' + list.brandBtn + '</div>' : '') + (list.note ? '<div class="seg-help" style="margin:6px 2px 10px">' + esc(list.note) + '</div>' : '') + productCards(list))
+      ? ((list.brandBtn ? '<div class="chip-row" style="margin-bottom:10px">' + list.brandBtn + '</div>' : '') + (list.note ? '<div class="seg-help" style="margin:6px 2px 10px">' + esc(list.note) + '</div>' : '') + (list.note ? aiResultHtml(query, 'top') : '') /* AI-NAME-SEARCH */ + productCards(list) + aiResultHtml(query, 'bottom') /* AI-NAME-SEARCH */)
       : noResultsHtml(query);
   }
 
@@ -2171,7 +2184,7 @@ a.sc-btn{text-decoration:none}
         + (AI_NAME_SEARCH ? '<div class="ai-alt"><button class="sc-btn alt" data-ai-name="' + esc(scNameLabel(rn || SC.names[0])) + '" data-ai-code="' + esc(SC.code) + '">Research this product with AI instead</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */
         + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     }
-    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="sc-sub" style="margin-top:10px">Or search NIH by the name on the bottle</div><div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>' + (AI_NAME_SEARCH ? '<div class="ai-alt"><button class="sc-btn alt" data-sc="ainame">Research it with AI instead</button><p class="ai-note">Type the name above first. AI research, not an NIH label; check it against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="sc-sub" style="margin-top:10px">' + (AI_NAME_SEARCH ? 'Type the name on the bottle, then choose' : 'Or search NIH by the name on the bottle') + '</div>' + (AI_NAME_SEARCH ? '<div class="sc-type" style="margin-bottom:8px"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"></div><div class="sc-two"><button type="button" class="sc-btn" data-sc="name">Search NIH</button><button type="button" class="sc-btn" data-sc="ainame">Research with AI</button></div><p class="ai-note" style="margin:0 0 6px">AI research is not an NIH label. Check what it says against the bottle.</p>' : '<div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     if (SC.view === 'err') return '<div class="sc-card warn"><div class="sc-kicker">Problem</div><p>' + esc(SC.err) + '</p><button class="sc-btn" data-sc="start">Try the camera again</button></div>';
     return '<div class="sc-card"><div class="sc-name">Scan a supplement barcode</div><p>Check any bottle on the shelf before you buy it. Hold the bottle about a hand-width from the camera with the bars flat inside the box.</p><button class="sc-btn" data-sc="start">' + SCAN_ICON.replace('<svg ', '<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:7px" ') + 'Start camera</button></div>';
   }
