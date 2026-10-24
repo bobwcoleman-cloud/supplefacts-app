@@ -156,7 +156,8 @@ export const handler = async (event) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 600,
+        max_tokens: 4000, // Haiku 5.5 thinks first and thinking counts toward this limit
+        output_config: { effort: 'low' }, // keep thinking short; the summary itself stays about 600 tokens
         system: 'You write short, neutral, evidence-based ingredient summaries for an independent, pharmacist-run dietary-supplement education site. Plain language, no marketing tone, no claims beyond what the source material actually supports. Output only the summary as plain paragraphs: no title, no headings, no bold, no bullet points.',
         messages: [{ role: 'user', content: promptText }]
       })
@@ -168,7 +169,7 @@ export const handler = async (event) => {
       return json(502, { error: 'upstream_error' });
     }
     let text = plain((data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join(''));
-    if (!text) return json(502, { error: 'empty_response' });
+    if (!text) { console.error('ai-summary empty response, stop_reason:', data.stop_reason); return json(502, { error: 'empty_response' }); }
     if (missing.length) {
       text = text + '\n\n' + missingNote(missing.map((i) => clip(i.name, 80))) + '\n\n' +
         (missing.length === ings.length

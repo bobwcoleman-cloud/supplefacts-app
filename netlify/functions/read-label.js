@@ -95,7 +95,8 @@ export const handler = async (event) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1500, // the copied panel is capped at 1,500 characters (about 400 tokens), so this is plenty
+        max_tokens: 4000, // Haiku 5.5 thinks first and thinking counts toward this limit; the copied panel itself is only about 400 tokens
+        output_config: { effort: 'low' }, // keep thinking short
         system: SYSTEM,
         messages: [{
           role: 'user',
