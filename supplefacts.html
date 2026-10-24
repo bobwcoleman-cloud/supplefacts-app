@@ -1734,7 +1734,6 @@ a.sc-btn{text-decoration:none}
       + '<div class="investigate-panel">'
       +   '<h3>Complete ingredient analysis</h3>'
       +   '<div class="investigate-text">Not all ingredients found in the NIH database? Use this link for a comprehensive and in-depth analysis of the ingredients on this label.</div>'
-      +   '<div style="display:flex; gap:8px; margin-bottom:10px;"><input type="text" id="labelUrl-' + esc(id) + '" placeholder="Paste label image URL (optional)" style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:inherit;" /></div>'
       +   '<button class="investigate-btn" data-investigate="' + esc(id) + '">🔍 Investigate the Evidence</button>'
       + '</div>';
   }
@@ -1880,14 +1879,9 @@ a.sc-btn{text-decoration:none}
     var invEl = e.target.closest('[data-investigate]');
     if (invEl){
       var productId = invEl.getAttribute('data-investigate');
-      var labelUrlInput = document.getElementById('labelUrl-' + productId);
-      var labelUrl = labelUrlInput ? labelUrlInput.value.trim() : '';
       var product = prodById(productId);
       if (!product) return;
-      var finalUrl = labelUrl
-        ? SITE + '/product-lookup?label=' + encodeURIComponent(labelUrl)   // label image URL provided
-        : buildInvestigateUrl(product);                                     // otherwise the full analysis prompt
-      window.open(finalUrl, '_blank');
+      window.open(buildInvestigateUrl(product), '_blank');   // the full analysis prompt
       return;
     }
   });
