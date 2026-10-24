@@ -16,14 +16,14 @@
 
 import { checkLimit, num } from '../lib/ratelimit.js';
 
-const MODEL = 'claude-haiku-4-5';
+const MODEL = 'claude-haiku-5-5';
 const MAX_BODY_BYTES = 30000; // a real label request is a few KB; anything bigger is not from the app
 const MAX_INGREDIENTS = 40;
 const DEFAULT_ORIGINS = ['https://supplefacts.brokenpromiseshealthcare.org'];
 const CACHE_STORE = 'ai-summaries';
 const CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days, then refresh
 // Bump this whenever the prompt/model above changes so old cached text isn't reused.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 
 // Added to the end of a summary when any ingredient had no NIH guide behind it. It is added by the
 // server (not left to the model) so the wording is always friendly and always present.

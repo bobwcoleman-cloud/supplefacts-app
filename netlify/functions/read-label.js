@@ -12,7 +12,7 @@
 
 import { checkLimit, num } from '../lib/ratelimit.js';
 
-const MODEL = 'claude-opus-5-5';
+const MODEL = 'claude-haiku-5-5'; // Haiku 5.5: built for extraction, and the cheapest current model. To change model, change only this line.
 const MAX_BODY_BYTES = 4 * 1024 * 1024; // the page shrinks photos to ~1600 px, well under 1 MB; this is a hard ceiling
 const MAX_TEXT = 1500;                   // same limit as the typed box on the page
 const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -91,15 +91,11 @@ export const handler = async (event) => {
       headers: {
         'content-type': 'application/json',
         'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        // If the model declines a request, the API retries it on a fallback model inside the same call
-        'anthropic-beta': 'server-side-fallback-2026-07-01'
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4000,
-        output_config: { effort: 'low' }, // copying text needs little reasoning; keeps each photo fast and cheap
-        fallbacks: 'default',
+        max_tokens: 1500, // the copied panel is capped at 1,500 characters (about 400 tokens), so this is plenty
         system: SYSTEM,
         messages: [{
           role: 'user',
