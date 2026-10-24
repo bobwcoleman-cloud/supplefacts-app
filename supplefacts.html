@@ -666,6 +666,7 @@ a.sc-btn{text-decoration:none}
 .sc-alt b{display:block;font-size:13.5px}
 .sc-alt span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
 .sc-tools{display:flex;gap:8px;margin:0 0 12px}
+.sc-tools[hidden]{display:none}
 .sc-photo{flex:1;cursor:pointer;text-align:center;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:11px 8px;font:700 12.5px 'Inter',-apple-system,sans-serif}
 .sc-type{display:flex;gap:8px;margin:0 0 14px}
 .sc-type input{flex:1;min-width:0;padding:11px 12px;border:1.5px solid var(--line);border-radius:12px;font:15px 'Inter',-apple-system,sans-serif;background:var(--surface);color:var(--fg)}
@@ -1895,7 +1896,7 @@ a.sc-btn{text-decoration:none}
      camera -> barcode digits -> product databases name the bottle (server function) -> NIH label match -> the normal product screen.
      The label's ingredients are what matter, so package size is ignored; the UPC is used only to confirm an exact label. */
   var SCAN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6" stroke-width="1.6"/></svg>';
-  var SC = { cand:'', candAt:0, cam:false, stream:null, timer:null, busy:false, det:null, rd:null, lastSeen:'', lastAt:0, run:0, view:'idle', code:'', names:[], res:null, err:'', torch:false, nih:'' };
+  var SC = { cand:'', candAt:0, cam:false, stream:null, timer:null, busy:false, det:null, rd:null, lastSeen:'', lastAt:0, run:0, view:'idle', code:'', names:[], res:null, err:'', errCam:false, torch:false, nih:'' };
   var SKEY = 'sf_scans';
   function scList(){ try { var r = JSON.parse(localStorage.getItem(SKEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e){ return []; } }
   function scRemember(c){
@@ -2295,6 +2296,7 @@ a.sc-btn{text-decoration:none}
         + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     }
     if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="' + (AI_NAME_SEARCH && AI_LABEL_HELP ? 'ai-sh' : 'sc-sub') + '" style="margin-top:10px">' + (AI_NAME_SEARCH ? (AI_LABEL_HELP ? '<span class="ai-n">1</span><span>Type the name on the bottle</span>' : 'Type the name on the bottle, then research it with AI') : 'Or search NIH by the name on the bottle') + '</div>' + (AI_NAME_SEARCH ? '<div class="sc-type" style="margin-bottom:8px"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"></div>' + (AI_LABEL_HELP ? aiLabelBox(2) + aiStep(3, 'Get the AI review') : '') + '<button type="button" class="sc-btn" data-sc="ainame">Research with AI</button><p class="ai-note" style="margin:0 0 6px">AI research is not an NIH label. Check what it says against the bottle.' + ((AI_LABEL_HELP && !AI_LABEL_PHOTO) ? AI_PHOTO_HINT : '') + '</p>' : '<div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    if (SC.view === 'err' && SC.errCam) return '<div class="sc-card warn"><div class="sc-kicker">Live camera unavailable</div><p>' + esc(SC.err) + ' No problem: use your phone\'s own camera instead. Hold the bottle so the barcode bars fill the frame.</p><label class="sc-btn" for="scPhoto">📷 Take a photo of the barcode</label><button class="sc-btn alt" data-sc="start">Try the live camera again</button><p class="ai-note">You can also type the number in the box below.</p></div>'; /* CAM-FALLBACK */
     if (SC.view === 'err') return '<div class="sc-card warn"><div class="sc-kicker">Problem</div><p>' + esc(SC.err) + '</p><button class="sc-btn" data-sc="start">Try the camera again</button></div>';
     return '<div class="sc-card"><div class="sc-name">Scan a supplement barcode</div><p>Check any bottle on the shelf before you buy it. Hold the bottle about a hand-width from the camera with the bars flat inside the box.</p><button class="sc-btn" data-sc="start">' + SCAN_ICON.replace('<svg ', '<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:7px" ') + 'Start camera</button></div>';
   }
@@ -2310,6 +2312,7 @@ a.sc-btn{text-decoration:none}
     if (v) v.hidden = !SC.cam;
     b.innerHTML = scBodyHtml();
     if (rc) rc.innerHTML = scRecentHtml();
+    var tl = document.querySelector('.sc-tools'); if (tl) tl.hidden = !!(SC.view === 'err' && SC.errCam); /* CAM-FALLBACK: the card already has the big photo button */
   }
 
   /* --- camera --- */
@@ -2392,7 +2395,7 @@ a.sc-btn{text-decoration:none}
     }
     return Promise.race([attempt(), new Promise(function(res, rej){ setTimeout(function(){ var e = new Error('timeout'); e.name = 'TimeoutError'; rej(e); }, 10000); })]);
   }
-  function scFail(msg){ scStopCam(); SC.view = 'err'; SC.err = msg + ' You can take a photo of the barcode or type the number below.'; scPaint(); }
+  function scFail(msg){ scStopCam(); SC.view = 'err'; SC.errCam = true; SC.err = msg; scPaint(); } /* CAM-FALLBACK: every live-camera failure lands on the card with the phone-camera button */
   function scStartCam(){
     if (!document.getElementById('scVid')) return;
     scStopCam(); SC.view = 'idle'; SC.res = null;
@@ -2426,7 +2429,7 @@ a.sc-btn{text-decoration:none}
     }).catch(function(e){
       if (e && e.name === 'Cancelled') return;
       var n = (e && e.name) || 'error';
-      scFail(n === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access in your browser settings, then try again.'
+      scFail(n === 'NotAllowedError' ? 'The live camera is blocked on this device.'
            : n === 'NotFoundError' ? 'No camera was found.'
            : n === 'NotReadableError' ? 'The camera is busy in another app.'
            : n === 'TimeoutError' || n === 'NoFrames' ? 'The camera did not start.'
@@ -2453,7 +2456,7 @@ a.sc-btn{text-decoration:none}
         try { return new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8'] }).detect(c).then(function(r){ var ok = (r || []).filter(function(x){ return scValid(x.rawValue); })[0]; return ok ? ok.rawValue : null; }, function(){ return null; }); } catch (e){ return Promise.resolve(null); }
       };
       tryNative().then(function(hit){
-        function go(h){ if (h){ SC.lastSeen = ''; scGot(h); } else { SC.view = 'err'; SC.err = 'No barcode found in that photo. Retake it closer and sharper with the bars filling the frame, or type the number below.'; scPaint(); } }
+        function go(h){ if (h){ SC.lastSeen = ''; scGot(h); } else { SC.view = 'err'; SC.errCam = false; SC.err = 'No barcode found in that photo. Retake it closer and sharper with the bars filling the frame, or type the number below.'; scPaint(); } }
         if (hit) return go(hit);
         scLoadZX(function(ok){
           var t = null;
@@ -2471,14 +2474,14 @@ a.sc-btn{text-decoration:none}
         });
       });
     };
-    img.onerror = function(){ URL.revokeObjectURL(url); SC.view = 'err'; SC.err = 'Could not open that photo.'; scPaint(); };
+    img.onerror = function(){ URL.revokeObjectURL(url); SC.view = 'err'; SC.errCam = false; SC.err = 'Could not open that photo.'; scPaint(); };
     img.src = url;
   }
 
   /* --- lookup --- */
   function scLookup(raw){
     var d = scDigits(raw);
-    if (d.length < 8 || d.length > 14){ SC.view = 'err'; SC.err = 'That does not look like a product barcode number (8 to 14 digits).'; scPaint(); return; }
+    if (d.length < 8 || d.length > 14){ SC.view = 'err'; SC.errCam = false; SC.err = 'That does not look like a product barcode number (8 to 14 digits).'; scPaint(); return; }
     var my = ++SC.run, code = scUpcA(d) || d;
     SC.code = d; SC.names = []; SC.res = null; SC.nih = ''; SC.view = 'looking'; scPaint();
     // 1. ask NIH for the number itself (the label's own UPC is the proof). 2. Only if NIH has no label with that number, identify the product by name.
@@ -2509,8 +2512,8 @@ a.sc-btn{text-decoration:none}
       .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, status: r.status, j: j }; }, function(){ return { ok: false, status: r.status, j: null }; }); })
       .then(function(x){
         if (my !== SC.run) return;
-        if (x.status === 429){ SC.view = 'err'; SC.err = 'You have scanned a lot in a short time. Please wait a few minutes and try again, or search by name.'; scPaint(); return; }
-        if (!x.ok || !x.j || !x.j.results){ SC.view = 'err'; SC.err = 'Could not look this barcode up right now (' + x.status + '). Check your connection and try again, or search by name.'; scPaint(); return; }
+        if (x.status === 429){ SC.view = 'err'; SC.errCam = false; SC.err = 'You have scanned a lot in a short time. Please wait a few minutes and try again, or search by name.'; scPaint(); return; }
+        if (!x.ok || !x.j || !x.j.results){ SC.view = 'err'; SC.errCam = false; SC.err = 'Could not look this barcode up right now (' + x.status + '). Check your connection and try again, or search by name.'; scPaint(); return; }
         var names = [];
         x.j.results.forEach(function(r){ (r.matches || []).forEach(function(m){ names.push({ brand: m.brand || '', name: m.name || '', dsldId: (r.source === 'dsld' && m.id) ? String(m.id) : '' }); }); });
         SC.names = names;
@@ -2518,7 +2521,7 @@ a.sc-btn{text-decoration:none}
         scRunMatch(code, names, my);
       }, function(){
         if (my !== SC.run) return;
-        SC.view = 'err'; SC.err = 'Could not reach the lookup service. Check your connection and try again.'; scPaint();
+        SC.view = 'err'; SC.errCam = false; SC.err = 'Could not reach the lookup service. Check your connection and try again.'; scPaint();
       });
   }
   function scOpen(id){
