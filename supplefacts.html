@@ -649,6 +649,12 @@ button{font-family:inherit}
 .sc-meta{font-size:12px;color:var(--muted);margin:0 0 8px}
 .sc-note,.sc-warn,.sc-card p{font-size:13px;line-height:1.5;margin:6px 0;color:var(--fg)}
 .sc-warn{color:var(--danger);font-weight:600}
+/* NAME-REQUIRED start */
+.sc-btn[disabled]{opacity:.45;cursor:not-allowed}
+.ai-need{display:none;margin:8px 0;padding:10px 12px;border-radius:10px;border:1.5px solid var(--danger);color:var(--danger);font-size:13px;font-weight:600;line-height:1.4}
+.ai-need.show{display:block}
+.sc-type input.need{border-color:var(--danger)}
+/* NAME-REQUIRED end */
 .sc-card.caution{border-color:var(--gold);border-width:2px}
 .sc-kicker.caut{display:inline-block;background:var(--gold);color:#1a1a1a;padding:3px 9px;border-radius:999px}
 .sc-chk{list-style:none;margin:6px 0 4px;padding:0;font-size:12.5px;line-height:1.5;color:var(--fg)}
@@ -1141,6 +1147,14 @@ a.sc-btn{text-decoration:none}
       + '<textarea id="scLabelText" rows="6" maxlength="1500" placeholder="Supplement Facts: each ingredient and its amount per serving"' + (AI_LABEL_PHOTO ? ' hidden' : '') + '></textarea></div>';
   }
   function aiStep(n, text){ return '<div class="ai-sh"><span class="ai-n">' + n + '</span><span>' + text + '</span></div>'; } /* AI-LABEL-CLEAR */
+  /* NAME-REQUIRED: the Research button on the unknown-barcode card stays off until the product name is filled in, and says why */
+  function aiNeed(){
+    var nm = document.getElementById('scName'), btn = document.getElementById('scAiBtn'); if (!nm || !btn) return;
+    var ok = nm.value.trim().length >= 3, lb = document.getElementById('scLabelText'), hasLabel = !!(lb && lb.value.trim().length >= 10);
+    btn.disabled = !ok; nm.classList.toggle('need', !ok && hasLabel);
+    var w = document.getElementById('scNeedName');
+    if (w){ w.textContent = hasLabel ? 'Add the product name in step 1. The label alone doesn\u2019t tell us which product this is.' : 'Add the product name in step 1 to continue.'; w.classList.toggle('show', !ok); }
+  }
   function labelMsg(t, err){ var m = document.getElementById('scLabelMsg'); if (!m) return; m.textContent = t; m.classList.toggle('err', !!err); }
   // shrink the photo in the browser (long side 1600 px, JPEG) so the upload is small and fast on a phone connection
   function shrinkPhoto(file){
@@ -1173,7 +1187,9 @@ a.sc-btn{text-decoration:none}
         return;
       }
       box.value = data.text; box.hidden = false; box.setAttribute('data-from-photo', '1'); var tl = document.querySelector('[data-ai-type]'); if (tl) tl.hidden = true;
-      labelMsg('Done. Check every line against the bottle and fix anything wrong before you tap Research.' + (data.cut ? ' The panel was long, so the end was cut off.' : ''));
+      var pn = document.getElementById('scName'), needName = !!(pn && pn.value.trim().length < 3);
+      labelMsg('Label captured. Check every line against the bottle and fix anything wrong.' + (needName ? ' Then add the product name in step 1 before you tap Research.' : ' Then tap Research.') + (data.cut ? ' The panel was long, so the end was cut off.' : ''));
+      aiNeed();
     } catch (e){
       labelMsg(e && e.message === 'decode' ? 'That photo could not be opened. Try taking it again.' : 'The label reader could not be reached. Check your connection, or type the panel below.', true);
     } finally {
@@ -2289,7 +2305,7 @@ a.sc-btn{text-decoration:none}
         + (AI_NAME_SEARCH ? '<div class="ai-alt">' + (AI_LABEL_HELP ? aiLabelBox(1) + aiStep(2, 'Get the AI review') : '') + '<button class="sc-btn" data-ai-name="' + esc(scNameLabel(rn || SC.names[0])) + '" data-ai-code="' + esc(SC.code) + '">Research this product with AI</button><p class="ai-note">' + AI_NOTE_TEXT + ((AI_LABEL_HELP && !AI_LABEL_PHOTO) ? AI_PHOTO_HINT : '') + '</p></div>' : '') /* AI-NAME-SEARCH, AI-LABEL-HELP */
         + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     }
-    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="' + (AI_NAME_SEARCH && AI_LABEL_HELP ? 'ai-sh' : 'sc-sub') + '" style="margin-top:10px">' + (AI_NAME_SEARCH ? (AI_LABEL_HELP ? '<span class="ai-n">1</span><span>Type the name on the bottle</span>' : 'Type the name on the bottle, then research it with AI') : 'Or search NIH by the name on the bottle') + '</div>' + (AI_NAME_SEARCH ? '<div class="sc-type" style="margin-bottom:8px"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"></div>' + (AI_LABEL_HELP ? aiLabelBox(2) + aiStep(3, 'Get the AI review') : '') + '<button type="button" class="sc-btn" data-sc="ainame">Research with AI</button><p class="ai-note" style="margin:0 0 6px">AI research is not an NIH label. Check what it says against the bottle.' + ((AI_LABEL_HELP && !AI_LABEL_PHOTO) ? AI_PHOTO_HINT : '') + '</p>' : '<div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
+    if (SC.view === 'unknown') return '<div class="sc-card"><div class="sc-kicker">Barcode ' + esc(shown) + '</div><div class="sc-name">We could not identify this barcode</div><p>None of the product databases we check knows this number.' + (SC.nih === 'unsure' ? ' NIH did not answer our barcode check just now, so please wait a minute and scan again.' : '') + ' Type the name from the bottle below, or scan it again.</p><div class="' + (AI_NAME_SEARCH && AI_LABEL_HELP ? 'ai-sh' : 'sc-sub') + '" style="margin-top:10px">' + (AI_NAME_SEARCH ? (AI_LABEL_HELP ? '<span class="ai-n">1</span><span>Type the name on the bottle <span class="ai-rec">required</span></span>' : 'Type the name on the bottle, then research it with AI') : 'Or search NIH by the name on the bottle') + '</div>' + (AI_NAME_SEARCH ? '<div class="sc-type" style="margin-bottom:8px"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"></div>' + (AI_LABEL_HELP ? aiLabelBox(2) + aiStep(3, 'Get the AI review') : '') + '<div class="ai-need" id="scNeedName" role="alert"></div><button type="button" class="sc-btn" id="scAiBtn" data-sc="ainame" disabled>Research with AI</button><p class="ai-note" style="margin:0 0 6px">AI research is not an NIH label. Check what it says against the bottle.' + ((AI_LABEL_HELP && !AI_LABEL_PHOTO) ? AI_PHOTO_HINT : '') + '</p>' : '<div class="sc-type"><input id="scName" autocomplete="off" enterkeyhint="search" placeholder="Brand and product name"><button type="button" data-sc="name">Search</button></div>') /* AI-NAME-SEARCH */ + '<button class="sc-btn alt" data-sc="again">Scan another product</button></div>';
     if (SC.view === 'err' && SC.errCam) return '<div class="sc-card warn"><div class="sc-kicker">Live camera unavailable</div><p>' + esc(SC.err) + ' No problem: use your phone\'s own camera instead. Hold the bottle so the barcode bars fill the frame.</p><label class="sc-btn" for="scPhoto">📷 Take a photo of the barcode</label><button class="sc-btn alt" data-sc="start">Try the live camera again</button><p class="ai-note">You can also type the number in the box below.</p></div>'; /* CAM-FALLBACK */
     if (SC.view === 'err') return '<div class="sc-card warn"><div class="sc-kicker">Problem</div><p>' + esc(SC.err) + '</p><button class="sc-btn" data-sc="start">Try the camera again</button></div>';
     return '<div class="sc-card"><div class="sc-name">Scan a supplement barcode</div><p>Check any bottle on the shelf before you buy it. Hold the bottle about a hand-width from the camera with the bars flat inside the box.</p><button class="sc-btn" data-sc="start">' + SCAN_ICON.replace('<svg ', '<svg style="width:20px;height:20px;vertical-align:-4px;margin-right:7px" ') + 'Start camera</button></div>';
@@ -2300,12 +2316,14 @@ a.sc-btn{text-decoration:none}
       + l.slice(0, 8).map(function(x){ return '<button class="sc-alt" data-go="product:' + esc(x.id) + '"><b>' + esc((x.brand ? x.brand + ' — ' : '') + x.name) + '</b><span>' + esc(new Date(x.t).toLocaleDateString()) + (x.u ? ' · name match only, not confirmed' : '') + '</span></button>'; }).join('')
       + '<button class="sc-clear" data-sc="clear">Clear this list</button>';
   }
+  document.addEventListener('input', function(e){ var t = e.target; if (t && (t.id === 'scName' || t.id === 'scLabelText')) aiNeed(); }); /* NAME-REQUIRED */
   function scPaint(){
     var v = document.getElementById('scView'), b = document.getElementById('scBody'), rc = document.getElementById('scRecent');
     if (!b) return;
     if (v) v.hidden = !SC.cam;
     b.innerHTML = scBodyHtml();
     if (rc) rc.innerHTML = scRecentHtml();
+    aiNeed(); /* NAME-REQUIRED */
     var tl = document.querySelector('.sc-tools'); if (tl) tl.hidden = !!(SC.view === 'err' && SC.errCam); /* CAM-FALLBACK: the card already has the big photo button */
   }
 
