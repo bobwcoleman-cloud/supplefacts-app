@@ -470,6 +470,10 @@ button{font-family:inherit}
   .notch,.statusbar,.home-indicator,.strip{display:none!important}
   .welcome{padding-top:max(env(safe-area-inset-top),26px)}
   .appbar{padding-top:calc(6px + env(safe-area-inset-top,0px))}
+  /* IPHONE-FIT: iPhone Safari zooms the whole page when you tap a text box whose type is smaller than 16px, and the page stays
+     zoomed (Go button cut off, content sliding sideways). 16px boxes never trigger that zoom. The sideways slide is also switched off. */
+  input,textarea,select{font-size:16px!important}
+  .content{overflow-x:hidden}
 }
 
 /* ===== Home rails, Search tab, Guide tab, bottom tab bar (added Oct 2026; nothing above was removed) ===== */
