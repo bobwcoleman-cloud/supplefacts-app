@@ -1538,7 +1538,9 @@ a.sc-btn{text-decoration:none}
     if (stem && stem.toLowerCase() !== query.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(stem) + '">Drop extra words: ' + esc(stem) + '</button>';
     if (query.indexOf(' ') > -1 && first.length >= 3 && first.toLowerCase() !== stem.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(first) + '">Search just “' + esc(first) + '”</button>';
     return '<div class="nores"><h4>Nothing found for “' + esc(query) + '”</h4><p>The NIH uses the wording printed on the bottle. Try a shorter or more general search' + (btns ? ', or one of these:' : '.') + '</p>' + (btns ? '<div class="chip-row">' + btns + '</div>' : '')
-      + (AI_NAME_SEARCH && query.trim().length >= 3 ? '<div class="ai-alt"><button class="chip" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>' : '') /* AI-NAME-SEARCH */
+      + (AI_NAME_SEARCH && query.trim().length >= 3 ? (AI_LABEL_HELP /* NORES-LABEL-PHOTO: offer the label photo before the AI search; AI_LABEL_HELP = false puts back the single button */
+          ? '<div class="ai-alt"><p class="ai-note" style="margin:0 0 8px">Not every supplement is in the NIH database. If you have the bottle, a photo of its label gives the AI the real ingredients to work from.</p>' + aiLabelBox(1) + aiStep(2, 'Get the AI review') + '<button type="button" class="sc-btn" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">' + AI_NOTE_TEXT + '</p></div>'
+          : '<div class="ai-alt"><button class="chip" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>') : '') /* AI-NAME-SEARCH */
       + '</div>';
   }
   /* AI-NAME-SEARCH start -- AI link on NIH result lists (top: weak "mentions the words" list; bottom: every list) */
