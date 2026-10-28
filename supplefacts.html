@@ -173,7 +173,7 @@ body{
 /* search */
 .search-row{display:flex;gap:8px;margin-bottom:6px;}
 .search-box{
-  flex:1;display:flex;align-items:center;gap:8px;
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px; /* min-width:0 lets the box shrink on narrow phones so the Go button stays on screen */
   background:var(--surface-2);border:1px solid var(--line);
   border-radius:12px;padding:10px 12px;
 }
