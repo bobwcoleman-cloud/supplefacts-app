@@ -1536,6 +1536,19 @@ a.sc-btn{text-decoration:none}
       if (still()) document.getElementById('brandResults').innerHTML = nihError('data-retry-brand="' + esc(brand) + '"', e.message);
     }
   }
+  /* AI-OFFER-PANEL: the label-photo step (camera or typed panel, then Research) shared by the Nothing-found card and by the
+     "Research with AI" buttons on result lists, which open it in place when tapped. To go back to a direct button, set AI_LABEL_HELP = false. */
+  function aiOfferCardHtml(query){
+    return '<p class="ai-note" style="margin:0 0 8px">Not every supplement is in the NIH database. If you have the bottle, a photo of its label gives the AI the real ingredients to work from.</p>'
+      + aiLabelBox(1) + aiStep(2, 'Get the AI review')
+      + '<button type="button" class="sc-btn" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">' + AI_NOTE_TEXT + '</p>';
+  }
+  function aiOfferOpen(btn){
+    var q = btn.getAttribute('data-ai-offer') || '', box = document.getElementById('aiOffer');
+    if (!box){ box = document.createElement('div'); box.id = 'aiOffer'; box.className = 'ai-alt'; btn.parentNode.insertBefore(box, btn.nextSibling); btn.hidden = true; }
+    if (!box.getAttribute('data-open')){ box.innerHTML = aiOfferCardHtml(q); box.setAttribute('data-open', '1'); }
+    try { box.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { box.scrollIntoView(); }
+  }
   function noResultsHtml(query){
     var stem = query.replace(/\b(complex|advanced|ultra|plus|formula|extra|strength)\b/ig, '').replace(/\s+/g, ' ').trim();
     var first = query.split(/\s+/)[0], btns = '';
@@ -1543,7 +1556,7 @@ a.sc-btn{text-decoration:none}
     if (query.indexOf(' ') > -1 && first.length >= 3 && first.toLowerCase() !== stem.toLowerCase()) btns += '<button class="chip" data-go="results:' + esc(first) + '">Search just “' + esc(first) + '”</button>';
     return '<div class="nores"><h4>Nothing found for “' + esc(query) + '”</h4><p>The NIH uses the wording printed on the bottle. Try a shorter or more general search' + (btns ? ', or one of these:' : '.') + '</p>' + (btns ? '<div class="chip-row">' + btns + '</div>' : '')
       + (AI_NAME_SEARCH && query.trim().length >= 3 ? (AI_LABEL_HELP /* NORES-LABEL-PHOTO: offer the label photo before the AI search; AI_LABEL_HELP = false puts back the single button */
-          ? '<div class="ai-alt"><p class="ai-note" style="margin:0 0 8px">Not every supplement is in the NIH database. If you have the bottle, a photo of its label gives the AI the real ingredients to work from.</p>' + aiLabelBox(1) + aiStep(2, 'Get the AI review') + '<button type="button" class="sc-btn" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">' + AI_NOTE_TEXT + '</p></div>'
+          ? '<div class="ai-alt" id="aiOffer" data-open="1">' + aiOfferCardHtml(query) + '</div>'
           : '<div class="ai-alt"><button class="chip" data-ai-name="' + esc(query) + '">Research “' + esc(query) + '” with AI</button><p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>') : '') /* AI-NAME-SEARCH */
       + '</div>';
   }
@@ -1552,9 +1565,9 @@ a.sc-btn{text-decoration:none}
     query = String(query || '').trim();
     if (!AI_NAME_SEARCH || query.length < 3) return '';
     var q = esc(query), d = esc(query.length > 40 ? query.slice(0, 40) + '…' : query);
-    var b = '<button class="chip" data-ai-name="' + q + '">Research “' + d + '” with AI</button>';
+    var b = '<button class="chip" ' + (AI_LABEL_HELP ? 'data-ai-offer="' : 'data-ai-name="') + q + '">Research “' + d + '” with AI' + (AI_LABEL_HELP ? '…' : '') + '</button>'; /* AI-OFFER-PANEL: with label help on, the button opens the photo step first */
     if (where === 'top') return '<div class="chip-row" style="margin:0 0 10px">' + b + '</div>';
-    return '<div class="ai-alt"><p class="ai-note" style="margin:0 0 6px">Not the right product?</p>' + b + '<p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>';
+    return '<div class="ai-alt"' + (AI_LABEL_HELP ? ' id="aiOffer"' : '') + '><p class="ai-note" style="margin:0 0 6px">Not the right product?</p>' + b + '<p class="ai-note">AI research, not an NIH label. Check what it says against the bottle.</p></div>';
   }
   /* AI-NAME-SEARCH end */
   function markTab(){
@@ -1610,7 +1623,7 @@ a.sc-btn{text-decoration:none}
   function nihError(retryAttr, detail, aiQuery){
     return '<div class="err-box"><strong>Couldn’t reach the NIH database right now.</strong><br>' + esc(detail || '')
       + '<br><button ' + retryAttr + '>Try again</button>'
-      + (AI_NAME_SEARCH && aiQuery && String(aiQuery).trim().length >= 3 ? '<button type="button" data-ai-name="' + esc(String(aiQuery).trim()) + '">Research with AI</button>' : '') /* AI-NAME-SEARCH */
+      + (AI_NAME_SEARCH && aiQuery && String(aiQuery).trim().length >= 3 ? '<button type="button" ' + (AI_LABEL_HELP ? 'data-ai-offer="' : 'data-ai-name="') + esc(String(aiQuery).trim()) + '">Research with AI' + (AI_LABEL_HELP ? '…' : '') + '</button>' : '') /* AI-NAME-SEARCH, AI-OFFER-PANEL */
       + '<a href="https://dsld.od.nih.gov/" target="_blank" rel="noopener">Search the NIH database directly →</a></div>';
   }
 
@@ -1858,6 +1871,8 @@ a.sc-btn{text-decoration:none}
       return;
     }
     /* AI-NAME-SEARCH start */
+    var offEl = e.target.closest('[data-ai-offer]'); /* AI-OFFER-PANEL */
+    if (offEl){ aiOfferOpen(offEl); return; }
     var tEl = e.target.closest('[data-ai-type]'); /* AI-LABEL-CLEAR */
     if (tEl){ var ta0 = document.getElementById('scLabelText'); if (ta0){ ta0.hidden = false; ta0.focus(); } tEl.hidden = true; return; }
     var aiEl = e.target.closest('[data-ai-name]');
