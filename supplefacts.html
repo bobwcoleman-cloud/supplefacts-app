@@ -1128,12 +1128,12 @@ a.sc-btn{text-decoration:none}
      It is OFF for everyone by default. To switch it on for yourself, open the app with ?nihclaude=1 on the end of the address
      (off again with ?nihclaude=0). To disable it completely: set NIH_CLAUDE_TEST = false. To remove it: delete every block
      marked NIH-CLAUDE-TEST (and the ai-quick function file). */
-  var NIH_CLAUDE_TEST = true;
+  var NIH_CLAUDE_TEST = false; /* OFF: Generate summary is back to the original NIH-only summary. Set to true (and open the app with ?nihclaude=1) to bring back the NIH + Claude test. */
+  var INVESTIGATE_QUICK = true; /* Investigate the Evidence sends the short first answer with the 1-5 follow-ups. Set to false to send the complete four-step prompt again. */
   var NQ_ENDPOINT = '/.netlify/functions/ai-quick';
   var NQ_ON = (function(){ try { var q = new URLSearchParams(location.search).get('nihclaude'); if (q === '1') localStorage.setItem('sf_nihclaude', '1'); else if (q === '0') localStorage.removeItem('sf_nihclaude'); return localStorage.getItem('sf_nihclaude') === '1'; } catch (e){ return false; } })();
   var nqCache = {};
   var NQ_QUICK_PROMPT = [
-    "QUICK CHECK REQUESTED",
     "Give a fast, accurate first answer of about 200 to 250 words, with no long preamble. Take the product facts (ingredients, amounts and claims) only from the label above, and do not assume anything that is not listed. Use published research for the evidence.",
     "",
     "Format:",
@@ -1272,7 +1272,7 @@ a.sc-btn{text-decoration:none}
       if (keepOther && product.other) prompt += '\nOther Ingredients: ' + product.other + '\n';
       if (keepClaims && product.claims.length) prompt += '\nLabel Claims: ' + product.claims.join(' | ') + '\n';
       prompt += '\n=== ANALYSIS REQUESTED ===\n';
-      if (nqMode === 'quick' && NIH_CLAUDE_TEST){ prompt += NQ_QUICK_PROMPT; return base + encodeURIComponent(prompt); } /* NIH-CLAUDE-TEST */
+      if (nqMode === 'quick' && INVESTIGATE_QUICK){ prompt += NQ_QUICK_PROMPT; return base + encodeURIComponent(prompt); } /* NIH-CLAUDE-TEST */
       if (AI_PROMPT_V2){ prompt += pv2Analysis('product', shortPrompt); return base + encodeURIComponent(prompt); } /* AI-PROMPT-V2 */
       prompt += 'Please provide an evidence-based analysis of this product\'s ingredients. Begin with a section titled "Bottom Line": two to four sentences giving your overall assessment of this product as a whole, then support it with the details. For each ingredient, explain:\n';
       prompt += '1. What it is\n';
@@ -2081,7 +2081,7 @@ a.sc-btn{text-decoration:none}
     var fbEl = e.target.closest('[data-ai-fallback]');
     if (fbEl){
       var fp = prodById(fbEl.getAttribute('data-ai-fallback'));
-      if (fp) window.open(buildInvestigateUrl(fp), '_blank');
+      if (fp) window.open(buildInvestigateUrl(fp, INVESTIGATE_QUICK ? 'quick' : undefined), '_blank');
       return;
     }
     var invEl = e.target.closest('[data-investigate]');
@@ -2089,7 +2089,7 @@ a.sc-btn{text-decoration:none}
       var productId = invEl.getAttribute('data-investigate');
       var product = prodById(productId);
       if (!product) return;
-      window.open(buildInvestigateUrl(product), '_blank');   // the full analysis prompt
+      window.open(buildInvestigateUrl(product, INVESTIGATE_QUICK ? 'quick' : undefined), '_blank');   // short first answer with follow-ups 1-5 (INVESTIGATE_QUICK = false for the complete four-step prompt)
       return;
     }
   });
