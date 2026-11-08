@@ -1134,22 +1134,23 @@ a.sc-btn{text-decoration:none}
   var NQ_ON = (function(){ try { var q = new URLSearchParams(location.search).get('nihclaude'); if (q === '1') localStorage.setItem('sf_nihclaude', '1'); else if (q === '0') localStorage.removeItem('sf_nihclaude'); return localStorage.getItem('sf_nihclaude') === '1'; } catch (e){ return false; } })();
   var nqCache = {};
   var NQ_QUICK_PROMPT = [
-    "Give a fast, accurate first answer of about 250 to 300 words, with no long preamble. Take the product facts (ingredients, amounts and claims) only from the label above, and do not assume anything that is not listed. Search current authoritative sources if you can (NIH Office of Dietary Supplements, NCCIH, Cochrane, PubMed). If you cannot search, say so in your first line and treat everything you write as from memory.",
+    "Give a fast, accurate first answer of about 250 to 300 words (not counting the closing menu), with no long preamble. Take the product facts (ingredients, amounts and claims) only from the label above, and do not assume anything that is not listed. If the label names a branded or trademarked ingredient, you may use the manufacturer's published specification for it (for example the standardization), and say that it came from the manufacturer. Search current authoritative sources if you can (NIH Office of Dietary Supplements, NCCIH, Cochrane, PubMed), and check for the most recent regulatory actions on each active ingredient (FDA, Health Canada, EFSA, TGA). If you cannot search, say so in your first line and treat everything you write as from memory.",
     "",
     "Format:",
     "BOTTOM LINE: two or three sentences on this exact product and dose, with your confidence (high, moderate or low) and the main reason for it.",
-    "INGREDIENTS: one line per ingredient: what it is for, the evidence strength (Strong, Moderate, Limited, None found, or Evidence of harm), whether the label form and amount are below, similar to, or above what studies used (write \"not comparable\" if the form differs, such as leaf versus root extract), and the tolerable upper intake level where one exists.",
+    "INGREDIENTS: one line per active ingredient: what it is for, the evidence strength (Strong, Moderate, Limited, None found, or Evidence of harm), whether the label form and amount are below, similar to, or above what studies used (write \"not comparable\" if the form differs, such as leaf versus root extract), and the tolerable upper intake level where one exists. Then one short line listing the inactive ingredients together, with no evidence ratings.",
     "LABEL CLAIMS: for each claim, whether the evidence supports it, partly supports it, or does not, and whether it is a structure/function claim or a disease claim. Quote any claim or testing statement you cannot verify.",
-    "WATCH FOR: the most important safety points and medicine interactions (up to five), including pregnancy and surgery cautions.",
+    "WATCH FOR: the most important safety points and medicine interactions (up to five), including pregnancy and surgery cautions and any recent regulatory action.",
     "",
     "Rules: Never invent a citation. If you name a study, give authors, year and a link or DOI; otherwise write \"evidence not verified.\" Name the sources you used. If something comes from memory, say \"check this.\" Say plainly where evidence is weak or missing. Do not give personal dosing advice. This is general information, not medical advice.",
     "",
-    "Finish by offering these follow-ups, one line each, so I can reply with a number:",
-    "1. Evidence details for each ingredient (study types, strength, sources)",
-    "2. Dose compared with the trials and upper limits",
-    "3. Safety and interactions in full",
-    "4. Quality, testing and recalls",
-    "5. The complete review"
+    "End your answer with this menu, word for word, so I know how to ask for more:",
+    "WANT MORE DETAIL? Type just one number (1 to 5) in this chat and send it. I will then expand that part:",
+    "1 = Evidence details for each ingredient (study types, strength, sources)",
+    "2 = Dose compared with the trials and upper limits",
+    "3 = Safety and interactions in full",
+    "4 = Quality, testing and recalls",
+    "5 = The complete review (all of the above in one answer)"
   ].join("\n");
   function nqCut(t, n){
     t = String(t || '').replace(/\s+/g, ' ').trim();
