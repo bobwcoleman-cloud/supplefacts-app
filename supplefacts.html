@@ -1134,14 +1134,15 @@ a.sc-btn{text-decoration:none}
   var NQ_ON = (function(){ try { var q = new URLSearchParams(location.search).get('nihclaude'); if (q === '1') localStorage.setItem('sf_nihclaude', '1'); else if (q === '0') localStorage.removeItem('sf_nihclaude'); return localStorage.getItem('sf_nihclaude') === '1'; } catch (e){ return false; } })();
   var nqCache = {};
   var NQ_QUICK_PROMPT = [
-    "Give a fast, accurate first answer of about 200 to 250 words, with no long preamble. Take the product facts (ingredients, amounts and claims) only from the label above, and do not assume anything that is not listed. Use published research for the evidence.",
+    "Give a fast, accurate first answer of about 250 to 300 words, with no long preamble. Take the product facts (ingredients, amounts and claims) only from the label above, and do not assume anything that is not listed. Search current authoritative sources if you can (NIH Office of Dietary Supplements, NCCIH, Cochrane, PubMed). If you cannot search, say so in your first line and treat everything you write as from memory.",
     "",
     "Format:",
     "BOTTOM LINE: two or three sentences on this exact product and dose, with your confidence (high, moderate or low) and the main reason for it.",
-    "INGREDIENTS: one line per ingredient: what it is for, the evidence strength (Strong, Moderate, Limited, None found, or Evidence of harm), and whether the label amount is below, similar to, or above what studies used.",
-    "WATCH FOR: the one to three most important safety points or medicine interactions, and anything on the label that looks misleading (quote it).",
+    "INGREDIENTS: one line per ingredient: what it is for, the evidence strength (Strong, Moderate, Limited, None found, or Evidence of harm), whether the label form and amount are below, similar to, or above what studies used (write \"not comparable\" if the form differs, such as leaf versus root extract), and the tolerable upper intake level where one exists.",
+    "LABEL CLAIMS: for each claim, whether the evidence supports it, partly supports it, or does not, and whether it is a structure/function claim or a disease claim. Quote any claim or testing statement you cannot verify.",
+    "WATCH FOR: the most important safety points and medicine interactions (up to five), including pregnancy and surgery cautions.",
     "",
-    "Rules: Never invent a citation. If you name a study, give authors, year and a link or DOI; otherwise write \"evidence not verified.\" If something comes from memory, say \"check this.\" Say plainly where evidence is weak or missing. Do not give personal dosing advice. This is general information, not medical advice.",
+    "Rules: Never invent a citation. If you name a study, give authors, year and a link or DOI; otherwise write \"evidence not verified.\" Name the sources you used. If something comes from memory, say \"check this.\" Say plainly where evidence is weak or missing. Do not give personal dosing advice. This is general information, not medical advice.",
     "",
     "Finish by offering these follow-ups, one line each, so I can reply with a number:",
     "1. Evidence details for each ingredient (study types, strength, sources)",
